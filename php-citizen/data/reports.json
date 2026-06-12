@@ -1,0 +1,16 @@
+{
+    "reports": [
+        {
+            "id": 1,
+            "citizen_id": 1,
+            "category": "kemacetan",
+            "description": "Macet parah di depan mall, antrean panjang 2km",
+            "zone_id": 4,
+            "latitude": -6.2088,
+            "longitude": 106.8456,
+            "status": "reported",
+            "created_at": "2026-06-12T11:20:40+02:00"
+        }
+    ],
+    "next_id": 2
+}

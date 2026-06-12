@@ -1,0 +1,12 @@
+{
+    "name": "fakhryzacky/php-traffic",
+    "authors": [
+        {
+            "name": "Mufaza",
+            "email": "fakhryzackyputra@gmail.com"
+        }
+    ],
+    "require": {
+        "php-amqplib/php-amqplib": "^3.7"
+    }
+}

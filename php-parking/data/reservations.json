@@ -1,0 +1,15 @@
+{
+    "reservations": [
+        {
+            "id": 1,
+            "citizen_id": 1,
+            "slot_id": 1,
+            "status": "completed",
+            "reserved_at": "2026-06-12T11:36:28+02:00",
+            "checked_in_at": "2026-06-12T11:36:37+02:00",
+            "checked_out_at": "2026-06-12T11:36:41+02:00",
+            "duration_minutes": 0
+        }
+    ],
+    "next_id": 2
+}

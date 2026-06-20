@@ -52,3 +52,25 @@ INSERT INTO incidents (zone_id, type, severity, description) VALUES
 (3, 'jalan_rusak', 'sedang', 'Jalan berlubang di Grogol'),
 (4, 'banjir', 'tinggi', 'Banjir setinggi 30cm di Kelapa Gading'),
 (5, 'kemacetan_parah', 'rendah', 'Antrian panjang di Cawang');
+
+-- Reports
+INSERT INTO reports (citizen_id, category, description, zone_id, status) VALUES
+(1, 'kemacetan',   'Macet parah di bundaran HI sejak pagi',        1, 'reported'),
+(2, 'kecelakaan',  'Motor vs mobil di depan Blok M Plaza',         2, 'verified'),
+(3, 'jalan_rusak', 'Ada lubang besar di Jl. Daan Mogot km 12',     3, 'in_progress'),
+(4, 'parkir_liar', 'Parkir liar memenuhi badan jalan Sunter',      4, 'reported'),
+(1, 'lainnya',     'Lampu merah mati di persimpangan Cawang',      5, 'resolved');
+
+-- Notifications
+INSERT INTO notifications (citizen_id, title, body, type, is_read) VALUES
+(1, 'Peringatan Kemacetan Zone 1', 'Kepadatan kendaraan di Zone 1 melebihi ambang normal (92 kendaraan/menit). Hindari Jalan Sudirman.', 'warning',  0),
+(2, 'Alert Kritis Zone 2',         'Anomali terdeteksi di Zone 2: kepadatan 88 kendaraan/menit. Insiden mungkin terjadi.',               'critical', 0),
+(3, 'Info Lalu Lintas Zone 3',     'Kondisi Zone 3 saat ini padat. Perkiraan tiba lebih lama 15 menit.',                                 'info',     1),
+(4, 'Peringatan Banjir Zone 4',    'Terdeteksi potensi banjir di Zone 4. Hindari kawasan Kelapa Gading untuk sementara.',                'critical', 0),
+(1, 'Slot Parkir Tersedia',        'Slot parkir A04 di Parkir Monas kini tersedia.',                                                     'info',     1);
+
+-- Parking Reservations
+INSERT INTO parking_reservations (citizen_id, slot_id, reserved_at, checked_in_at, checked_out_at, duration_minutes, status) VALUES
+(1, 1, NOW() - INTERVAL 2 HOUR, NOW() - INTERVAL 2 HOUR, NOW() - INTERVAL 1 HOUR, 60,   'completed'),
+(2, 6, NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 3 HOUR, NULL,                    NULL, 'active'),
+(3, 5, NOW(),                   NULL,                    NULL,                    NULL, 'reserved');

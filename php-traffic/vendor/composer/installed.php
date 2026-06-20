@@ -1,24 +1,15 @@
 <?php return array(
     'root' => array(
-        'name' => 'fakhryzacky/php-traffic',
+        'name' => 'smartcity/traffic-service',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '9d31beb03d6e7de2b40973f73f7588050a05522c',
-        'type' => 'library',
+        'reference' => 'a6ad50ea2fc819d882145d8324533789891a2b48',
+        'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        'fakhryzacky/php-traffic' => array(
-            'pretty_version' => 'dev-main',
-            'version' => 'dev-main',
-            'reference' => '9d31beb03d6e7de2b40973f73f7588050a05522c',
-            'type' => 'library',
-            'install_path' => __DIR__ . '/../../',
-            'aliases' => array(),
-            'dev_requirement' => false,
-        ),
         'paragonie/constant_time_encoding' => array(
             'pretty_version' => 'v3.1.3',
             'version' => '3.1.3.0',
@@ -52,6 +43,15 @@
             'reference' => '511ddc8e352d5d1f1e33bea468b6f4ef48438cf9',
             'type' => 'library',
             'install_path' => __DIR__ . '/../phpseclib/phpseclib',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'smartcity/traffic-service' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'a6ad50ea2fc819d882145d8324533789891a2b48',
+            'type' => 'project',
+            'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
             'dev_requirement' => false,
         ),

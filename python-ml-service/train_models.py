@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np  
 import os
 import joblib
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, IsolationForest
@@ -10,6 +11,23 @@ os.makedirs('models', exist_ok=True)
 print("Memuat dataset dari folder data/ ...")
 df_traffic = pd.read_csv('data/traffic_history.csv')
 df_parking = pd.read_csv('data/parking_history.csv')
+
+df_traffic = df_traffic.drop_duplicates(subset=['timestamp', 'location'])
+df_traffic['vehicle_density'] = df_traffic['vehicle_density'].interpolate(method='linear')
+
+Q1 = df_traffic['vehicle_density'].quantile(0.25)
+Q3 = df_traffic['vehicle_density'].quantile(0.75)
+IQR = Q3 - Q1
+upper_bound = Q3 + 1.5 * IQR
+df_traffic['vehicle_density'] = np.where(df_traffic['vehicle_density'] > upper_bound, upper_bound, df_traffic['vehicle_density'])
+
+df_parking = df_parking.drop_duplicates(subset=['timestamp', 'zone_id'])
+df_parking['occupancy_rate'] = df_parking['occupancy_rate'].interpolate(method='linear')
+Q1_p = df_parking['occupancy_rate'].quantile(0.25)
+Q3_p = df_parking['occupancy_rate'].quantile(0.75)
+IQR_p = Q3_p - Q1_p
+upper_bound_p = min(1.0, Q3_p + 1.5 * IQR_p)
+df_parking['occupancy_rate'] = np.where(df_parking['occupancy_rate'] > upper_bound_p, upper_bound_p, df_parking['occupancy_rate'])
 
 print("Training Model 1: Traffic Predictor...")
 le_loc = LabelEncoder()
@@ -59,4 +77,4 @@ artifacts = {
 }
 
 joblib.dump(artifacts, 'models/smartcity_models.pkl')
-print("✅ Selesai! Semua model berhasil disimpan ke models/smartcity_models.pkl")
+print("Pembuatan model telah selesai, eksistensinya dapat di cek di folder models")

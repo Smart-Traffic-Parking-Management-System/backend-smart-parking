@@ -18,6 +18,48 @@ services:
       timeout: 5s
       retries: 5
 
+  oauth-server:
+    build: ./oauth-server
+    container_name: oauth-server
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-86400}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET}
+      USER_USERNAME: ${USER_USERNAME:-admin}
+      USER_PASSWORD: ${USER_PASSWORD:-admin123}
+      INTROSPECTION_API_KEY: ${OAUTH_INTROSPECTION_API_KEY}
+    networks:
+      - smartcity-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  api-gateway:
+    build: ./express-gateway
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      OAUTH_SERVER_URL: http://oauth-server:3002
+      OAUTH_INTROSPECT_PATH: /oauth/introspect
+      OAUTH_INTROSPECTION_API_KEY: ${OAUTH_INTROSPECTION_API_KEY}
+      CITIZEN_SERVICE_URL: ${CITIZEN_SERVICE_URL}
+      TRAFFIC_SERVICE_URL: ${TRAFFIC_SERVICE_URL}
+      PARKING_SERVICE_URL: ${PARKING_SERVICE_URL}
+      PYTHON_ML_URL: ${PYTHON_ML_URL}
+    networks:
+      - smartcity-net
+    depends_on:
+      - oauth-server
+
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: smartcity-rabbitmq
@@ -33,7 +75,7 @@ services:
       timeout: 10s
       retries: 5
 
-    mosquitto:
+  mosquitto:
       image: eclipse-mosquitto:2.0
       container_name: mosquitto
       ports:

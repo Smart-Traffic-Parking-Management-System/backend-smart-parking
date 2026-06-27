@@ -56,3 +56,13 @@ services:
       - ./iot/passwd:/mosquitto/config/passwd
     networks:
       - smartcity-net
+
+  nodered:
+    image: nodered/node-red:3.1
+    container_name: nodered
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./iot/node-red-data:/data
+    networks:
+      - smartcity-net

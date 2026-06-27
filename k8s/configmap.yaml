@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smartcity-config
+  namespace: smartcity
+data:
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_NAME: smartcity
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: guest
+  MQTT_BROKER: mosquitto
+  MQTT_PORT: "1883"
+  CITIZEN_SERVICE_URL: http://citizen-service:8000
+  TRAFFIC_SERVICE_URL: http://traffic-service:8001
+  PARKING_SERVICE_URL: http://parking-service:8002
+  PYTHON_ML_URL: http://python-ml:5000
+  OAUTH_SERVER_URL: http://oauth-server:3002

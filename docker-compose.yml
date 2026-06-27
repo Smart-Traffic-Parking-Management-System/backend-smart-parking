@@ -1,5 +1,14 @@
 version: '3.8'
 
+networks:
+  smartcity-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  rabbitmq_data:
+  grafana_data:
+
 services:
   mysql:
     image: mysql:8.0
@@ -12,11 +21,43 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+    networks:
+      - smartcity-net
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: smartcity-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - smartcity-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: smartcity-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./iot/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./iot/passwd:/mosquitto/config/passwd
+    networks:
+      - smartcity-net
 
   oauth-server:
     build: ./oauth-server
@@ -60,32 +101,6 @@ services:
     depends_on:
       - oauth-server
 
-  rabbitmq:
-    image: rabbitmq:3.12-management
-    container_name: smartcity-rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  mosquitto:
-      image: eclipse-mosquitto:2.0
-      container_name: mosquitto
-      ports:
-      - "1883:1883"
-      volumes:
-      - ./iot/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - ./iot/passwd:/mosquitto/config/passwd
-      networks:
-      - smartcity-net
-
   citizen-service:
     build: ./php-citizen
     container_name: citizen-service
@@ -101,16 +116,36 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASS: guest
+    networks:
+      - smartcity-net
     depends_on:
       mysql:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+
+  traffic-service:
+    build: ./php-traffic
+    container_name: traffic-service
+    ports:
+      - "8001:8001"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: smartcity
+      DB_USER: root
+      DB_PASSWORD: root123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    networks:
+      - smartcity-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   parking-service:
     build: ./php-parking
@@ -127,16 +162,30 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASS: guest
+    networks:
+      - smartcity-net
     depends_on:
       mysql:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-volumes:
-  mysql_data:
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: smartcity-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - smartcity-net
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: smartcity-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - smartcity-net

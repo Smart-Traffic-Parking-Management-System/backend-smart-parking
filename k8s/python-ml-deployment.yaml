@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: citizen-service
+  namespace: smartcity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: citizen-service
+  template:
+    metadata:
+      labels:
+        app: citizen-service
+    spec:
+      containers:
+      - name: citizen-service
+        image: smartcity/citizen-service:latest
+        envFrom:
+        - configMapRef:
+            name: smartcity-config
+        - secretRef:
+            name: smartcity-secrets
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: citizen-service
+  namespace: smartcity
+spec:
+  selector:
+    app: citizen-service
+  ports:
+  - port: 8000
+    targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-service
+  namespace: smartcity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-service
+  template:
+    metadata:
+      labels:
+        app: traffic-service
+    spec:
+      containers:
+      - name: traffic-service
+        image: smartcity/traffic-service:latest
+        envFrom:
+        - configMapRef:
+            name: smartcity-config
+        - secretRef:
+            name: smartcity-secrets
+        ports:
+        - containerPort: 8001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traffic-service
+  namespace: smartcity
+spec:
+  selector:
+    app: traffic-service
+  ports:
+  - port: 8001
+    targetPort: 8001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parking-service
+  namespace: smartcity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: parking-service
+  template:
+    metadata:
+      labels:
+        app: parking-service
+    spec:
+      containers:
+      - name: parking-service
+        image: smartcity/parking-service:latest
+        envFrom:
+        - configMapRef:
+            name: smartcity-config
+        - secretRef:
+            name: smartcity-secrets
+        ports:
+        - containerPort: 8002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: parking-service
+  namespace: smartcity
+spec:
+  selector:
+    app: parking-service
+  ports:
+  - port: 8002
+    targetPort: 8002

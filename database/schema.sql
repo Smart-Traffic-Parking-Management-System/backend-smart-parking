@@ -128,11 +128,16 @@ CREATE TABLE oauth_clients (
 CREATE TABLE oauth_tokens (
   id INT PRIMARY KEY AUTO_INCREMENT,
   client_id VARCHAR(100) NOT NULL,
-  user_id INT NULL,
+  user_id INT NULL COMMENT 'citizens.id — NULL untuk client_credentials',
   access_token VARCHAR(512) UNIQUE NOT NULL,
   refresh_token VARCHAR(512) NULL,
+  scope VARCHAR(100) DEFAULT 'read write',
   expires_at TIMESTAMP NOT NULL,
+  revoked_at TIMESTAMP NULL DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES citizens(id) ON DELETE SET NULL,
   INDEX idx_access_token (access_token),
-  INDEX idx_expires_at (expires_at)
+  INDEX idx_refresh_token (refresh_token),
+  INDEX idx_expires_at (expires_at),
+  INDEX idx_revoked_at (revoked_at)
 );

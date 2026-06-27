@@ -1,45 +1,74 @@
-networks:
-  smartcity-net:
-    driver: bridge
-
-volumes:
-  mysql-data:
-  rabbitmq-data:
+version: '3.8'
 
 services:
   mysql:
     image: mysql:8.0
-    container_name: mysql
+    container_name: smartcity-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: smartcity
     ports:
       - "3306:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  oauth-server:
+    build: ./oauth-server
+    container_name: oauth-server
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-86400}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET}
+      USER_USERNAME: ${USER_USERNAME:-admin}
+      USER_PASSWORD: ${USER_PASSWORD:-admin123}
+      INTROSPECTION_API_KEY: ${OAUTH_INTROSPECTION_API_KEY}
     networks:
       - smartcity-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3002/health"]
       interval: 30s
       timeout: 10s
       retries: 5
 
+  api-gateway:
+    build: ./express-gateway
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      OAUTH_SERVER_URL: http://oauth-server:3002
+      OAUTH_INTROSPECT_PATH: /oauth/introspect
+      OAUTH_INTROSPECTION_API_KEY: ${OAUTH_INTROSPECTION_API_KEY}
+      CITIZEN_SERVICE_URL: ${CITIZEN_SERVICE_URL}
+      TRAFFIC_SERVICE_URL: ${TRAFFIC_SERVICE_URL}
+      PARKING_SERVICE_URL: ${PARKING_SERVICE_URL}
+      PYTHON_ML_URL: ${PYTHON_ML_URL}
+    networks:
+      - smartcity-net
+    depends_on:
+      - oauth-server
+
   rabbitmq:
     image: rabbitmq:3.12-management
-    container_name: rabbitmq
+    container_name: smartcity-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     ports:
       - "5672:5672"
       - "15672:15672"
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    networks:
-      - smartcity-net
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 30s
@@ -47,12 +76,67 @@ services:
       retries: 5
 
   mosquitto:
-    image: eclipse-mosquitto:2.0
-    container_name: mosquitto
-    ports:
+      image: eclipse-mosquitto:2.0
+      container_name: mosquitto
+      ports:
       - "1883:1883"
-    volumes:
+      volumes:
       - ./iot/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - ./iot/passwd:/mosquitto/config/passwd
-    networks:
+      networks:
       - smartcity-net
+
+  citizen-service:
+    build: ./php-citizen
+    container_name: citizen-service
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: smartcity
+      DB_USER: root
+      DB_PASSWORD: root123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  parking-service:
+    build: ./php-parking
+    container_name: parking-service
+    ports:
+      - "8002:8002"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: smartcity
+      DB_USER: root
+      DB_PASSWORD: root123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:

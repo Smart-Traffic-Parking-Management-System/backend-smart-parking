@@ -88,6 +88,16 @@ class ReservationController {
     }
     
     private function publishParkingUpdate($slotId, $status) {
-        error_log("Parking update: slot $slotId status $status");
+        try {
+        require_once __DIR__ . '/../../vendor/autoload.php';
+        $publisher = new \App\Services\RabbitMQPublisher();
+        $publisher->publish('parking.update', [
+            'slot_id'   => $slotId,
+            'status'    => $status,
+            'timestamp' => date('c'),
+        ]);
+    } catch (\Exception $e) {
+        error_log("RabbitMQ publish failed: " . $e->getMessage());
+        }
     }
 }

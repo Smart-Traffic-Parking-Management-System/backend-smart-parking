@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: smartcity
+data:
+  mosquitto.conf: |
+    listener 1883 0.0.0.0
+    protocol mqtt
+    
+    listener 9001 0.0.0.0
+    protocol websockets
+    
+    allow_anonymous false
+    password_file /mosquitto/config/passwd
+    
+    persistence true
+    persistence_location /mosquitto/data/
+    
+    log_dest file /mosquitto/log/mosquitto.log
+    log_dest stdout
+    log_timestamp true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: smartcity
+  labels:
+    app: mosquitto
+    tier: iot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mosquitto
+      tier: iot
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+        tier: iot
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:2.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 1883
+          name: mqtt
+        - containerPort: 9001
+          name: websockets
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - mosquitto_sub -h localhost -u iot_device -P $MQTT_PASSWORD -t '$SYS/broker/version' -C 1 | grep -q v
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - mosquitto_sub -h localhost -u iot_device -P $MQTT_PASSWORD -t '$SYS/broker/uptime' -C 1 | grep -q uptime
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+        env:
+        - name: MQTT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: MQTT_PASSWORD
+        volumeMounts:
+        - name: mosquitto-config
+          mountPath: /mosquitto/config
+        - name: mosquitto-data
+          mountPath: /mosquitto/data
+        - name: mosquitto-log
+          mountPath: /mosquitto/log
+        - name: mosquitto-passwd
+          mountPath: /mosquitto/config/passwd
+          subPath: passwd
+      volumes:
+      - name: mosquitto-config
+        configMap:
+          name: mosquitto-config
+      - name: mosquitto-data
+        emptyDir: {}
+      - name: mosquitto-log
+        emptyDir: {}
+      - name: mosquitto-passwd
+        secret:
+          secretName: mosquitto-credentials
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mosquitto-credentials
+  namespace: smartcity
+type: Opaque
+data:
+  passwd: aW90X2RldmljZTpzbWFydGNpdHk=  # iot_device:smartcity (base64)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: smartcity
+  labels:
+    app: mosquitto
+spec:
+  type: ClusterIP
+  selector:
+    app: mosquitto
+    tier: iot
+  ports:
+  - port: 1883
+    targetPort: 1883
+    protocol: TCP
+    name: mqtt
+  - port: 9001
+    targetPort: 9001
+    protocol: TCP
+    name: websockets

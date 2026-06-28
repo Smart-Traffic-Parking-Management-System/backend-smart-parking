@@ -1,7 +1,11 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+<<<<<<< HEAD
+  name: smartcity
+=======
   name: smartcity
   labels:
     name: smartcity
     environment: production
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80

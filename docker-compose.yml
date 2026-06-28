@@ -1,3 +1,5 @@
+version: '3.8'
+
 networks:
   smartcity-net:
     driver: bridge
@@ -132,50 +134,6 @@ services:
     networks:
       - smartcity-net
 
-  traffic-service:
-    build: ./php-traffic
-    container_name: traffic-service
-    ports:
-      - "8001:8001"
-    environment:
-      DB_HOST: mysql
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASS: ${RABBITMQ_PASS}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - smartcity-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  python-ml-service:
-    build: ./python-ml-service
-    container_name: python-ml-service
-    ports:
-      - "5000:5000"
-    environment:
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASS: ${RABBITMQ_PASS}
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - smartcity-net
-
   citizen-service:
     build: ./php-citizen
     container_name: citizen-service
@@ -200,6 +158,34 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  traffic-service:
+    build: ./php-traffic
+    container_name: traffic-service
+    ports:
+      - "8001:8001"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartcity-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -231,6 +217,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  python-ml-service:
+    build: ./python-ml-service
+    container_name: python-ml-service
+    ports:
+      - "5000:5000"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartcity-net
 
   prometheus:
     image: prom/prometheus:v2.48.0

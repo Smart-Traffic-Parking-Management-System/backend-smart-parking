@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+<<<<<<< HEAD
   name: oauth-server
   namespace: smartcity
 spec:
@@ -46,10 +47,29 @@ spec:
   selector:
     matchLabels:
       app: api-gateway
+=======
+  name: api-gateway
+  namespace: smartcity
+  labels:
+    app: api-gateway
+    tier: gateway
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: api-gateway
+      tier: gateway
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
   template:
     metadata:
       labels:
         app: api-gateway
+<<<<<<< HEAD
     spec:
       containers:
       - name: api-gateway
@@ -67,16 +87,124 @@ spec:
             port: 3000
           initialDelaySeconds: 10
           periodSeconds: 5
+=======
+        tier: gateway
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - api-gateway
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: api-gateway
+        image: api-gateway:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: GATEWAY_PORT
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: GATEWAY_LOG_LEVEL
+        - name: OAUTH_SERVER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: OAUTH_SERVER_URL
+        - name: CITIZEN_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: CITIZEN_SERVICE_URL
+        - name: TRAFFIC_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: TRAFFIC_SERVICE_URL
+        - name: PARKING_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: PARKING_SERVICE_URL
+        - name: PYTHON_ML_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: PYTHON_ML_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: JWT_SECRET
+        - name: RATE_LIMIT_WINDOW_MS
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RATE_LIMIT_WINDOW_MS
+        - name: RATE_LIMIT_MAX_REQUESTS
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RATE_LIMIT_MAX_REQUESTS
+        - name: AUTH_RATE_LIMIT_WINDOW_MS
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: AUTH_RATE_LIMIT_WINDOW_MS
+        - name: AUTH_RATE_LIMIT_MAX_REQUESTS
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: AUTH_RATE_LIMIT_MAX_REQUESTS
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
         livenessProbe:
           httpGet:
             path: /health
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
+<<<<<<< HEAD
+=======
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+      restartPolicy: Always
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
 ---
 apiVersion: v1
 kind: Service
 metadata:
+<<<<<<< HEAD
   name: api-gateway-svc
   namespace: smartcity
 spec:
@@ -86,3 +214,23 @@ spec:
   - port: 80
     targetPort: 3000
   type: ClusterIP
+=======
+  name: api-gateway
+  namespace: smartcity
+  labels:
+    app: api-gateway
+spec:
+  type: LoadBalancer
+  selector:
+    app: api-gateway
+    tier: gateway
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 3000
+    protocol: TCP
+    name: https
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80

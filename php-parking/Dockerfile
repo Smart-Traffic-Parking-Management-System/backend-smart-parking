@@ -14,7 +14,6 @@ RUN composer install --no-dev --ignore-platform-req=ext-sockets
 RUN mkdir -p /var/www/html/data && chmod -R 777 /var/www/html/data
 
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
-
 RUN sed -i 's/Listen 80/Listen 8002/' /etc/apache2/ports.conf \
     && sed -i 's/<VirtualHost \*:80>/<VirtualHost *:8002>/' /etc/apache2/sites-available/000-default.conf
 

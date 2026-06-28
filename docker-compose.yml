@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   smartcity-net:
     driver: bridge
@@ -47,6 +45,29 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+
+  rabbitmq-init:
+    image: curlimages/curl:latest
+    container_name: rabbitmq-init
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartcity-net
+    restart: "no"
+    entrypoint: >
+      sh -c "
+        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/exchanges/%2F/city.events -H 'Content-Type: application/json' -d '{\"type\":\"topic\",\"durable\":true}' &&
+        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/traffic.new -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/parking.update -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/anomaly.alert -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/report.submitted -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/traffic.new -H 'Content-Type: application/json' -d '{\"routing_key\":\"traffic.new\"}' &&
+        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/parking.update -H 'Content-Type: application/json' -d '{\"routing_key\":\"parking.update\"}' &&
+        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/anomaly.alert -H 'Content-Type: application/json' -d '{\"routing_key\":\"anomaly.alert\"}' &&
+        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/report.submitted -H 'Content-Type: application/json' -d '{\"routing_key\":\"report.submitted\"}' &&
+        echo 'RabbitMQ setup complete!'
+      "
 
   mosquitto:
     image: eclipse-mosquitto:2.0

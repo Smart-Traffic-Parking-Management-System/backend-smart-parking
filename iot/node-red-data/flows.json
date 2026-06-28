@@ -1,0 +1,174 @@
+[
+    {
+        "id": "tab-traffic",
+        "type": "tab",
+        "label": "Traffic & Parking Flow",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "mqtt-broker-config",
+        "type": "mqtt-broker",
+        "name": "Mosquitto Broker",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "15",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "mqtt-traffic-in",
+        "type": "mqtt in",
+        "z": "tab-traffic",
+        "name": "MQTT Traffic In",
+        "topic": "city/+/traffic",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "mqtt-broker-config",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 150,
+        "y": 100,
+        "wires": [
+            [
+                "fn-parse-traffic"
+            ]
+        ]
+    },
+    {
+        "id": "fn-parse-traffic",
+        "type": "function",
+        "z": "tab-traffic",
+        "name": "Parse & Validate Traffic",
+        "func": "const payload = msg.payload;\nconst topicParts = msg.topic.split('/');\nconst zone = topicParts[1];\n\nconst zoneMap = { zone1: 1, zone2: 2, zone3: 3, zone4: 4, zone5: 5 };\n\nmsg.payload = {\n    zone_id: zoneMap[zone] || 1,\n    vehicle_density: payload.vehicle_density,\n    avg_speed_kmh: payload.avg_speed_kmh,\n    source: 'iot'\n};\n\nreturn msg;",
+        "outputs": 1,
+        "x": 400,
+        "y": 100,
+        "wires": [
+            [
+                "http-post-traffic"
+            ]
+        ]
+    },
+    {
+        "id": "http-post-traffic",
+        "type": "http request",
+        "z": "tab-traffic",
+        "name": "POST to Gateway /iot/traffic",
+        "method": "POST",
+        "url": "http://api-gateway:3000/iot/traffic",
+        "headers": [
+            {
+                "keyType": "Content-Type",
+                "valueType": "application/json"
+            }
+        ],
+        "x": 650,
+        "y": 100,
+        "wires": [
+            [
+                "catch-http-error"
+            ]
+        ]
+    },
+    {
+        "id": "catch-http-error",
+        "type": "catch",
+        "z": "tab-traffic",
+        "name": "Catch Gateway Down",
+        "scope": null,
+        "x": 650,
+        "y": 180,
+        "wires": [
+            [
+                "delay-retry"
+            ]
+        ]
+    },
+    {
+        "id": "delay-retry",
+        "type": "delay",
+        "z": "tab-traffic",
+        "name": "Retry After 60s",
+        "pauseType": "delay",
+        "timeout": "60",
+        "timeoutUnits": "seconds",
+        "outputs": 1,
+        "x": 650,
+        "y": 260,
+        "wires": [
+            [
+                "http-post-traffic"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt-parking-in",
+        "type": "mqtt in",
+        "z": "tab-traffic",
+        "name": "MQTT Parking In",
+        "topic": "city/+/parking",
+        "qos": "1",
+        "broker": "mqtt-broker-config",
+        "inputs": 0,
+        "x": 150,
+        "y": 320,
+        "wires": [
+            [
+                "fn-parse-parking"
+            ]
+        ]
+    },
+    {
+        "id": "fn-parse-parking",
+        "type": "function",
+        "z": "tab-traffic",
+        "name": "Parse & Validate Parking",
+        "func": "const payload = msg.payload;\nconst topicParts = msg.topic.split('/');\nconst zone = topicParts[1];\n\nmsg.payload = {\n    zone: zone,\n    occupied_slots: payload.occupied_slots,\n    timestamp: payload.timestamp\n};\n\nreturn msg;",
+        "outputs": 1,
+        "x": 400,
+        "y": 320,
+        "wires": [
+            [
+                "http-post-parking"
+            ]
+        ]
+    },
+    {
+        "id": "http-post-parking",
+        "type": "http request",
+        "z": "tab-traffic",
+        "name": "POST to Gateway /iot/parking",
+        "method": "POST",
+        "url": "http://api-gateway:3000/iot/parking",
+        "headers": [
+            {
+                "keyType": "Content-Type",
+                "valueType": "application/json"
+            }
+        ],
+        "x": 650,
+        "y": 320,
+        "wires": [
+            []
+        ]
+    }
+]

@@ -1,14 +1,5 @@
 version: '3.8'
 
-networks:
-  smartcity-net:
-    driver: bridge
-
-volumes:
-  mysql_data:
-  rabbitmq_data:
-  grafana_data:
-
 services:
   mysql:
     image: mysql:8.0
@@ -120,7 +111,6 @@ services:
       - "1883:1883"
     volumes:
       - ./iot/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - ./iot/passwd:/mosquitto/config/passwd
     networks:
       - smartcity-net
 
@@ -131,6 +121,50 @@ services:
       - "1880:1880"
     volumes:
       - ./iot/node-red-data:/data
+    networks:
+      - smartcity-net
+
+  traffic-service:
+    build: ./php-traffic
+    container_name: traffic-service
+    ports:
+      - "8001:8001"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartcity-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  python-ml-service:
+    build: ./python-ml-service
+    container_name: python-ml-service
+    ports:
+      - "5000:5000"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     networks:
       - smartcity-net
 
@@ -158,34 +192,6 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  traffic-service:
-    build: ./php-traffic
-    container_name: traffic-service
-    ports:
-      - "8001:8001"
-    environment:
-      DB_HOST: mysql
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASS: ${RABBITMQ_PASS}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - smartcity-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -218,41 +224,10 @@ services:
       timeout: 10s
       retries: 3
 
-  python-ml-service:
-    build: ./python-ml-service
-    container_name: python-ml-service
-    ports:
-      - "5000:5000"
-    environment:
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASS: ${RABBITMQ_PASS}
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - smartcity-net
+volumes:
+  mysql_data:
+  rabbitmq_data:
 
-  prometheus:
-    image: prom/prometheus:v2.48.0
-    container_name: smartcity-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - smartcity-net
-
-  grafana:
-    image: grafana/grafana:10.2.0
-    container_name: smartcity-grafana
-    ports:
-      - "3001:3000"
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks:
-      - smartcity-net
+networks:
+  smartcity-net:
+    driver: bridge

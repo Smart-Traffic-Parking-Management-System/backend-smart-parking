@@ -67,9 +67,43 @@ if (!oauthServerUrl) {
 // ─── Global middleware ─────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
+// Accept form-encoded bodies so gateway can forward OAuth token requests
+app.use(express.urlencoded({ extended: false }));
 app.use(morgan(process.env.LOG_FORMAT || 'combined'));
 app.use(requestLogger);
 app.use(globalLimiter);
+
+// Proxy /oauth/* to the OAuth server (so clients can call the gateway)
+const querystring = require('querystring');
+app.use('/oauth', createProxyMiddleware({
+  target: oauthServerUrl,
+  changeOrigin: true,
+  pathRewrite: { '^/oauth': '/oauth' },
+  onProxyReq(proxyReq, req, res) {
+    try {
+      if (req.body && Object.keys(req.body).length) {
+        const contentType = req.headers['content-type'] || '';
+        let bodyData;
+        if (contentType.includes('application/json')) {
+          bodyData = JSON.stringify(req.body);
+          proxyReq.setHeader('Content-Type', 'application/json');
+        } else {
+          // default to urlencoded
+          bodyData = querystring.stringify(req.body);
+          proxyReq.setHeader('Content-Type', 'application/x-www-form-urlencoded');
+        }
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+        proxyReq.end();
+      }
+    } catch (e) {
+      // swallow — proxy will handle errors
+    }
+  },
+  onError(err, req, res) {
+    res.status(502).json({ status: 'error', code: 502, message: err.message || 'OAuth proxy error' });
+  },
+}));
 
 // ─── OAuth introspection helper ────────────────────────────────────────────────
 async function introspectToken(token) {

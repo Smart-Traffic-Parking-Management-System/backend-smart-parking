@@ -25,7 +25,7 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { OAuth2Client } = require('google-auth-library');
-const { saveToken, getToken, revokeToken, isActive } = require('../models/token');
+const { saveToken, getToken, revokeToken, isActive, listTokens } = require('../models/token');
 
 const router = express.Router();
 
@@ -78,7 +78,8 @@ function createAccessToken(payload) {
 }
 
 // ─── POST /oauth/token ─────────────────────────────────────────────────────────
-router.post('/token', express.urlencoded({ extended: false }), (req, res) => {
+// Use global body parsers (JSON and urlencoded) configured in src/index.js
+router.post('/token', (req, res) => {
   const grantType = req.body.grant_type;
 
   if (!grantType) {
@@ -252,8 +253,10 @@ router.post('/token', express.urlencoded({ extended: false }), (req, res) => {
 // Mengembalikan field yang dibutuhkan Gateway dan service PHP:
 //   active, role, user_id/citizen_id, scope
 router.post('/introspect', (req, res) => {
-  const apiKey         = req.headers['x-api-key'] || req.body.api_key;
-  const expectedApiKey = process.env.INTROSPECTION_API_KEY;
+  const apiKey = req.headers['x-api-key'] || req.body.api_key;
+  // Accept either INTROSPECTION_API_KEY (oauth-server) or
+  // OAUTH_INTROSPECTION_API_KEY (gateway .env naming) for flexibility.
+  const expectedApiKey = process.env.INTROSPECTION_API_KEY || process.env.OAUTH_INTROSPECTION_API_KEY;
 
   if (!expectedApiKey || apiKey !== expectedApiKey) {
     return res.status(403).json({
@@ -391,3 +394,14 @@ if (googleClientId && googleClientSecret && googleCallbackUrl) {
 }
 
 module.exports = router;
+
+// --- Development-only debug routes to aid Postman/manual testing ---
+if (process.env.NODE_ENV === 'development') {
+  // List active token records (non-production helper)
+  router.get('/debug/tokens', (req, res) => {
+    return res.json({ status: 'success', tokens: listTokens() });
+  });
+
+  // Simple ping to verify router is loaded
+  router.get('/debug/ping', (req, res) => res.json({ status: 'success', service: 'oauth-server', env: process.env.NODE_ENV }));
+}

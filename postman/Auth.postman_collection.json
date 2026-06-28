@@ -1,0 +1,111 @@
+{
+  "info": {
+    "name": "SmartCity Auth Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Collection to test OAuth endpoints via API Gateway (http://localhost:3000)"
+  },
+  "item": [
+    {
+      "name": "Get Access Token - password (form)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "password" },
+            { "key": "username", "value": "admin" },
+            { "key": "password", "value": "admin123" }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:3000/oauth/token",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["oauth","token"]
+        }
+      }
+    },
+    {
+      "name": "Get Access Token - client_credentials (form)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "client_credentials" },
+            { "key": "client_id", "value": "smartcity_client" },
+            { "key": "client_secret", "value": "e99eb63167bbda4d2fb6b4a849bfa41ef5761829f2b3585e6803921e8556c7f3" }
+          ]
+        },
+        "url": { "raw": "http://localhost:3000/oauth/token", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["oauth","token"] }
+      }
+    },
+    {
+      "name": "Get Access Token - client_credentials (Basic Auth)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" },
+          { "key": "Authorization", "value": "Basic c21hcnRjaXR5X2NsaWVudDplOTllYjYzMTY3YmJkYTRkMmZiNmI0YTg0OWJmYTQxZWY1NzYxODI5ZjJiMzU4NWU2ODAzOTJlODU1NmM3ZjM=" }
+        ],
+        "body": { "mode": "urlencoded", "urlencoded": [ { "key": "grant_type", "value": "client_credentials" } ] },
+        "url": { "raw": "http://localhost:3000/oauth/token", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["oauth","token"] }
+      }
+    },
+    {
+      "name": "Refresh Token",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/x-www-form-urlencoded" } ],
+        "body": { "mode": "urlencoded", "urlencoded": [ { "key": "grant_type", "value": "refresh_token" }, { "key": "refresh_token", "value": "{{refresh_token}}" } ] },
+        "url": { "raw": "http://localhost:3000/oauth/token", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["oauth","token"] }
+      }
+    },
+    {
+      "name": "Introspect Token",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "SmartCity@Introspect#2026" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{access_token}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": { "raw": "http://localhost:3000/oauth/introspect", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["oauth","introspect"] }
+      }
+    },
+    {
+      "name": "Revoke Token",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{access_token}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": { "raw": "http://localhost:3000/oauth/revoke", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["oauth","revoke"] }
+      }
+    },
+    {
+      "name": "Debug - ping",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "http://localhost:3000/oauth/debug/ping", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["oauth","debug","ping"] }
+      }
+    },
+    {
+      "name": "Debug - tokens",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "http://localhost:3000/oauth/debug/tokens", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["oauth","debug","tokens"] }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "access_token", "value": "" },
+    { "key": "refresh_token", "value": "" }
+  ]
+}

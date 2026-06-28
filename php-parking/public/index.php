@@ -264,6 +264,24 @@ elseif ($uri === '/api/parking/history' && $method === 'GET') {
     sendResponse(['status'=>'success','code'=>200,'data'=>array_reverse($history),'timestamp'=>date('c'),'service'=>'parking-service']);
 }
 
+// GET SINGLE PARKING SLOT
+elseif (preg_match('/^\/api\/parking\/slots\/(\d+)$/', $uri, $matches) && $method === 'GET') {
+    $slotId = (int)$matches[1];
+    $slots = loadSlots();
+    $found = null;
+    foreach ($slots as $slot) {
+        if ($slot['id'] == $slotId) {
+            $found = $slot;
+            break;
+        }
+    }
+    if ($found) {
+        sendResponse(['status'=>'success','code'=>200,'data'=>$found,'timestamp'=>date('c'),'service'=>'parking-service']);
+    } else {
+        sendResponse(['status'=>'error','code'=>404,'message'=>"Slot ID {$slotId} tidak ditemukan",'timestamp'=>date('c'),'service'=>'parking-service'], 404);
+    }
+}
+
 // 404
 else {
     sendResponse(['status'=>'error','code'=>404,'message'=>"Endpoint not found: {$uri}",'timestamp'=>date('c'),'service'=>'parking-service'], 404);

@@ -7,6 +7,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -50,6 +52,7 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
+      JWT_SECRET: ${JWT_SECRET}
       OAUTH_SERVER_URL: http://oauth-server:3002
       OAUTH_INTROSPECT_PATH: /oauth/introspect
       OAUTH_INTROSPECTION_API_KEY: ${OAUTH_INTROSPECTION_API_KEY}

@@ -95,7 +95,23 @@ elseif ($uri === '/api/citizens' && $method === 'POST') {
     $data['citizens'][] = $newCitizen;
     $data['next_id']++;
     saveData($dataFile, $data);
-    unset($newCitizen['password']);
+    unset($newCitizen['password']); 
+
+    // Simpan notifikasi greeting
+    $notifData = loadData($notifFile);
+    $greeting = [
+        'id' => $notifData['next_id'],
+        'citizen_id' => $newCitizen['id'],
+        'title' => 'Selamat Datang!',
+        'body' => 'Halo ' . $newCitizen['name'] . ', selamat bergabung di Smart Traffic & Parking System!',
+        'type' => 'info',
+        'is_read' => 0,
+        'created_at' => date('c')
+    ];
+    $notifData['notifications'][] = $greeting;
+    $notifData['next_id']++;
+    saveData($notifFile, $notifData);
+    
     sendResponse(['status'=>'success','code'=>201,'data'=>$newCitizen,'message'=>'Warga berhasil didaftarkan','timestamp'=>date('c'),'service'=>'citizen-service'], 201);
 }
 

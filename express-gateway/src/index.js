@@ -1,0 +1,461 @@
+/**
+ * express-gateway/src/index.js
+ *
+ * Matriks akses yang diterapkan:
+ *
+ * PUBLIC (tanpa auth)
+ *   GET  /health
+ *   GET  /                        (info)
+ *   POST /api/citizens            (register)
+ *   GET  /health pada semua downstream (dihandle service masing-masing)
+ *
+ * SERVICE only (client_credentials scope=service)
+ *   GET  /metrics
+ *   POST /iot/traffic
+ *   POST /iot/parking
+ *
+ * CITIZEN + ADMIN (JWT role=citizen|admin)
+ *   GET/PUT  /api/citizens/:id    (citizen: hanya milik sendiri — dicek di PHP)
+ *   POST     /api/reports
+ *   GET      /api/reports         (citizen: milik sendiri — dicek di PHP)
+ *   GET/PATCH /api/notifications*
+ *   GET      /api/traffic/current
+ *   GET      /api/traffic/history
+ *   GET      /api/roads
+ *   POST     /api/incidents
+ *   GET      /api/incidents
+ *   GET/POST /api/parking/*       (kecuali /api/parking/readings)
+ *   POST     /predict/traffic
+ *   POST     /predict/parking
+ *
+ * ADMIN only (JWT role=admin)
+ *   PATCH /api/reports/:id/status
+ *   PATCH /api/incidents/:id/resolve
+ *   GET   /model/feature-importance
+ *   POST  /predict/batch
+ *
+ * ADMIN + SERVICE
+ *   POST /detect/anomaly
+ *   GET  /model/feature-importance
+ *   POST /predict/batch
+ */
+
+require('dotenv').config();
+const express  = require('express');
+const cors     = require('cors');
+const morgan   = require('morgan');
+const axios    = require('axios');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+
+const { globalLimiter, authLimiter }          = require('./middleware/rateLimit');
+const { jwtMiddleware, getBearerToken }        = require('./middleware/jwt');
+const { requireRole, requireServiceToken }     = require('./middleware/roleCheck');
+const { requestLogger }                        = require('./middleware/logger');
+const { aggregateHealth }                      = require('./utils/healthCheck');
+const { citizenProxy, trafficProxy, parkingProxy, pythonProxy } = require('./routes/proxy');
+
+const app  = express();
+const port = parseInt(process.env.PORT || '3000', 10);
+const oauthServerUrl       = process.env.OAUTH_SERVER_URL;
+const oauthIntrospectPath  = process.env.OAUTH_INTROSPECT_PATH || '/oauth/introspect';
+
+if (!oauthServerUrl) {
+  console.error('Missing OAUTH_SERVER_URL in environment');
+  process.exit(1);
+}
+
+// ─── Global middleware ─────────────────────────────────────────────────────────
+app.use(cors());
+app.use(express.json({ limit: '2mb' }));
+app.use(morgan(process.env.LOG_FORMAT || 'combined'));
+app.use(requestLogger);
+app.use(globalLimiter);
+
+// ─── OAuth introspection helper ────────────────────────────────────────────────
+async function introspectToken(token) {
+  try {
+    const url = `${oauthServerUrl.replace(/\/$/, '')}${oauthIntrospectPath}`;
+    const response = await axios.post(
+      url,
+      { token },
+      {
+        timeout: 3000,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.OAUTH_INTROSPECTION_API_KEY || '',
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    return { active: false, error: error.message };
+  }
+}
+
+// Digunakan untuk /iot/* dan endpoint ML internal (scope=service)
+async function oauthIntrospectionMiddleware(req, res, next) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return res.status(401).json({
+      status: 'error',
+      code: 401,
+      message: 'Authentication token is required',
+    });
+  }
+
+  const introspection = await introspectToken(token);
+  if (!introspection || !introspection.active) {
+    return res.status(401).json({
+      status: 'error',
+      code: 401,
+      message: 'Token is invalid or inactive',
+    });
+  }
+
+  req.oauth = introspection;
+  return next();
+}
+
+// ─── Public routes ─────────────────────────────────────────────────────────────
+app.get('/', (req, res) => {
+  res.json({
+    status: 'success',
+    message: 'API Gateway is running',
+    service: 'api-gateway',
+  });
+});
+
+app.get('/health', async (req, res) => {
+  const services = [
+    { name: 'oauth-server',    url: `${oauthServerUrl.replace(/\/$/, '')}/health` },
+    { name: 'citizen-service', url: `${process.env.CITIZEN_SERVICE_URL}/health` },
+    { name: 'traffic-service', url: `${process.env.TRAFFIC_SERVICE_URL}/health` },
+    { name: 'parking-service', url: `${process.env.PARKING_SERVICE_URL}/health` },
+    { name: 'python-ml',       url: `${process.env.PYTHON_ML_URL}/health` },
+  ];
+  const result = await aggregateHealth(services);
+  return res.json({ status: 'success', service: 'api-gateway', health: result });
+});
+
+// ─── Rate limiting untuk authenticated routes ──────────────────────────────────
+const authPrefixes = [
+  '/api/citizens', '/api/traffic', '/api/parking',
+  '/api/reports', '/api/notifications',
+  '/predict', '/detect', '/model', '/iot', '/metrics',
+];
+app.use((req, res, next) => {
+  if (authPrefixes.some((p) => req.path.startsWith(p))) {
+    return authLimiter(req, res, next);
+  }
+  return next();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SERVICE-ONLY routes (client_credentials, scope=service)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// GET /metrics — Prometheus scrape, internal only
+app.get(
+  '/metrics',
+  oauthIntrospectionMiddleware,
+  requireServiceToken,
+  (req, res) => {
+    // Placeholder — diganti dengan prom-client jika diperlukan
+    res.set('Content-Type', 'text/plain');
+    res.send('# metrics placeholder\n');
+  }
+);
+
+// POST /iot/traffic — dari Node-RED → Traffic Service
+app.post(
+  '/iot/traffic',
+  oauthIntrospectionMiddleware,
+  requireServiceToken,
+  createProxyMiddleware({
+    target: process.env.TRAFFIC_SERVICE_URL,
+    changeOrigin: true,
+    pathRewrite: { '^/iot/traffic': '/api/traffic/readings' },
+    onError(err, req, res) {
+      res.status(502).json({ status: 'error', code: 502, message: err.message || 'IoT proxy error' });
+    },
+  })
+);
+
+// POST /iot/parking — dari Node-RED → Parking Service
+app.post(
+  '/iot/parking',
+  oauthIntrospectionMiddleware,
+  requireServiceToken,
+  createProxyMiddleware({
+    target: process.env.PARKING_SERVICE_URL,
+    changeOrigin: true,
+    pathRewrite: { '^/iot/parking': '/api/parking/readings' },
+    onError(err, req, res) {
+      res.status(502).json({ status: 'error', code: 502, message: err.message || 'IoT proxy error' });
+    },
+  })
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CITIZEN SERVICE routes
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// POST /api/citizens — PUBLIC (register warga baru, tidak butuh auth)
+app.post('/api/citizens', citizenProxy);
+
+// GET /api/citizens/:id — CITIZEN (milik sendiri) + ADMIN
+app.get(
+  '/api/citizens/:id',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  citizenProxy
+);
+
+// PUT /api/citizens/:id — CITIZEN (milik sendiri) + ADMIN
+app.put(
+  '/api/citizens/:id',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  citizenProxy
+);
+
+// POST /api/reports — CITIZEN + ADMIN
+app.post(
+  '/api/reports',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  citizenProxy
+);
+
+// GET /api/reports — CITIZEN (milik sendiri) + ADMIN (semua) — filter di PHP
+app.get(
+  '/api/reports',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  citizenProxy
+);
+
+// PATCH /api/reports/:id/status — ADMIN ONLY
+app.patch(
+  '/api/reports/:id/status',
+  jwtMiddleware,
+  requireRole('admin'),
+  citizenProxy
+);
+
+// GET /api/notifications — CITIZEN + ADMIN
+app.get(
+  '/api/notifications',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  citizenProxy
+);
+
+// PATCH /api/notifications/:id/read — CITIZEN + ADMIN
+app.patch(
+  '/api/notifications/:id/read',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  citizenProxy
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRAFFIC SERVICE routes
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/traffic/current — CITIZEN + ADMIN + SERVICE
+app.get(
+  '/api/traffic/current',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  trafficProxy
+);
+
+// GET /api/traffic/history — CITIZEN + ADMIN + SERVICE
+app.get(
+  '/api/traffic/history',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  trafficProxy
+);
+
+// GET /api/roads — CITIZEN + ADMIN
+app.get(
+  '/api/roads',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  trafficProxy
+);
+
+// POST /api/incidents — CITIZEN + ADMIN (laporan dari user)
+app.post(
+  '/api/incidents',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  trafficProxy
+);
+
+// GET /api/incidents — CITIZEN + ADMIN
+app.get(
+  '/api/incidents',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  trafficProxy
+);
+
+// PATCH /api/incidents/:id/resolve — ADMIN ONLY
+app.patch(
+  '/api/incidents/:id/resolve',
+  jwtMiddleware,
+  requireRole('admin'),
+  trafficProxy
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PARKING SERVICE routes
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/parking/zones — CITIZEN + ADMIN + SERVICE
+app.get(
+  '/api/parking/zones',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  parkingProxy
+);
+
+// GET /api/parking/slots — CITIZEN + ADMIN + SERVICE
+app.get(
+  '/api/parking/slots',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  parkingProxy
+);
+
+// POST /api/parking/reserve — CITIZEN + ADMIN
+app.post(
+  '/api/parking/reserve',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  parkingProxy
+);
+
+// PATCH /api/parking/checkin/:id — CITIZEN + ADMIN
+app.patch(
+  '/api/parking/checkin/:id',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  parkingProxy
+);
+
+// PATCH /api/parking/checkout/:id — CITIZEN + ADMIN
+app.patch(
+  '/api/parking/checkout/:id',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  parkingProxy
+);
+
+// GET /api/parking/history — CITIZEN + ADMIN
+app.get(
+  '/api/parking/history',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  parkingProxy
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PYTHON ML SERVICE routes
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// POST /predict/traffic — CITIZEN + ADMIN + SERVICE
+app.post(
+  '/predict/traffic',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  pythonProxy
+);
+
+// POST /predict/parking — CITIZEN + ADMIN + SERVICE
+app.post(
+  '/predict/parking',
+  jwtMiddleware,
+  requireRole('citizen', 'admin'),
+  pythonProxy
+);
+
+// POST /detect/anomaly — ADMIN + SERVICE only
+// SERVICE menggunakan introspection, ADMIN menggunakan JWT
+app.post('/detect/anomaly', (req, res, next) => {
+  const token = getBearerToken(req);
+  if (!token) {
+    return res.status(401).json({ status: 'error', code: 401, message: 'Authentication token is required' });
+  }
+  // Coba verifikasi sebagai JWT dulu (admin)
+  const jwt = require('jsonwebtoken');
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (payload.role === 'admin') {
+      req.user = payload;
+      return next();
+    }
+    // Bukan admin, coba sebagai service token via introspect
+  } catch (_) {
+    // Bukan JWT valid, lanjut ke introspect
+  }
+  return oauthIntrospectionMiddleware(req, res, () => {
+    requireServiceToken(req, res, next);
+  });
+}, pythonProxy);
+
+// GET /model/feature-importance — ADMIN + SERVICE only
+app.get('/model/feature-importance', (req, res, next) => {
+  const token = getBearerToken(req);
+  if (!token) {
+    return res.status(401).json({ status: 'error', code: 401, message: 'Authentication token is required' });
+  }
+  const jwt = require('jsonwebtoken');
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (payload.role === 'admin') {
+      req.user = payload;
+      return next();
+    }
+  } catch (_) {}
+  return oauthIntrospectionMiddleware(req, res, () => {
+    requireServiceToken(req, res, next);
+  });
+}, pythonProxy);
+
+// POST /predict/batch — ADMIN + SERVICE only
+app.post('/predict/batch', (req, res, next) => {
+  const token = getBearerToken(req);
+  if (!token) {
+    return res.status(401).json({ status: 'error', code: 401, message: 'Authentication token is required' });
+  }
+  const jwt = require('jsonwebtoken');
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (payload.role === 'admin') {
+      req.user = payload;
+      return next();
+    }
+  } catch (_) {}
+  return oauthIntrospectionMiddleware(req, res, () => {
+    requireServiceToken(req, res, next);
+  });
+}, pythonProxy);
+
+// ─── Fallback 404 ──────────────────────────────────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ status: 'error', code: 404, message: 'Route not found' });
+});
+
+// ─── Global error handler ──────────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ status: 'error', code: 500, message: 'Internal server error' });
+});
+
+app.listen(port, () => {
+  console.log(`API Gateway listening on port ${port}`);
+});

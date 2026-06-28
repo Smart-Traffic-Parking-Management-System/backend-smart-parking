@@ -5,8 +5,8 @@ services:
     image: mysql:8.0
     container_name: smartcity-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: smartcity
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
     ports:
       - "3306:3306"
     volumes:
@@ -66,8 +66,8 @@ services:
     image: rabbitmq:3.12-management
     container_name: smartcity-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -92,17 +92,18 @@ services:
     restart: "no"
     entrypoint: >
       sh -c "
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/exchanges/%2F/city.events -H 'Content-Type: application/json' -d '{\"type\":\"topic\",\"durable\":true}' &&
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/traffic.new -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/parking.update -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/anomaly.alert -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/report.submitted -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
-        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/traffic.new -H 'Content-Type: application/json' -d '{\"routing_key\":\"traffic.new\"}' &&
-        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/parking.update -H 'Content-Type: application/json' -d '{\"routing_key\":\"parking.update\"}' &&
-        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/anomaly.alert -H 'Content-Type: application/json' -d '{\"routing_key\":\"anomaly.alert\"}' &&
-        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/report.submitted -H 'Content-Type: application/json' -d '{\"routing_key\":\"report.submitted\"}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/exchanges/%2F/city.events -H 'Content-Type: application/json' -d '{\"type\":\"topic\",\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/queues/%2F/traffic.new -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/queues/%2F/parking.update -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/queues/%2F/anomaly.alert -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/queues/%2F/report.submitted -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/traffic.new -H 'Content-Type: application/json' -d '{\"routing_key\":\"traffic.new\"}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/parking.update -H 'Content-Type: application/json' -d '{\"routing_key\":\"parking.update\"}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/anomaly.alert -H 'Content-Type: application/json' -d '{\"routing_key\":\"anomaly.alert\"}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/report.submitted -H 'Content-Type: application/json' -d '{\"routing_key\":\"report.submitted\"}' &&
         echo 'RabbitMQ setup complete!'
       "
+
   mosquitto:
     image: eclipse-mosquitto:2.0
     container_name: mosquitto
@@ -130,14 +131,14 @@ services:
       - "8001:8001"
     environment:
       DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: smartcity
-      DB_USER: root
-      DB_PASSWORD: root123
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASS: guest
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
     depends_on:
       mysql:
         condition: service_healthy
@@ -158,7 +159,9 @@ services:
       - "5000:5000"
     environment:
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -172,14 +175,14 @@ services:
       - "8000:8000"
     environment:
       DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: smartcity
-      DB_USER: root
-      DB_PASSWORD: root123
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASS: guest
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
     networks:
       - smartcity-net
     depends_on:
@@ -200,14 +203,14 @@ services:
       - "8002:8002"
     environment:
       DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: smartcity
-      DB_USER: root
-      DB_PASSWORD: root123
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASS: guest
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
     networks:
       - smartcity-net
     depends_on:

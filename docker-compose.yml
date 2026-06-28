@@ -146,7 +146,10 @@ services:
     networks:
       - smartcity-net
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   iot-simulator:
     image: python:3.10-slim

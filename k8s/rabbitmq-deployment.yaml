@@ -1,0 +1,202 @@
+<<<<<<< HEAD
+=======
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: smartcity
+data:
+  rabbitmq.conf: |
+    default_user = smartcity
+    default_pass = smartcity_rabbitmq_password
+    listeners.tcp.default = 5672
+    management.listener.port = 15672
+  rabbitmq-init.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Wait for RabbitMQ to be ready
+    until rabbitmq-diagnostics -q ping; do
+      echo "RabbitMQ is starting..."
+      sleep 5
+    done
+    
+    echo "RabbitMQ is ready. Setting up exchanges and queues..."
+    
+    # Enable management plugin
+    rabbitmq-plugins enable rabbitmq_management
+    
+    # Create exchange
+    rabbitmqctl declare_exchange city.events topic --durable=true
+    
+    # Create queues
+    rabbitmqctl declare_queue traffic.new --durable=true
+    rabbitmqctl declare_queue parking.update --durable=true
+    rabbitmqctl declare_queue anomaly.alert --durable=true
+    rabbitmqctl declare_queue report.submitted --durable=true
+    
+    # Bind queues to exchange
+    rabbitmqctl bind_queue_to_exchange traffic.new city.events "traffic.*"
+    rabbitmqctl bind_queue_to_exchange parking.update city.events "parking.*"
+    rabbitmqctl bind_queue_to_exchange anomaly.alert city.events "anomaly.*"
+    rabbitmqctl bind_queue_to_exchange report.submitted city.events "report.*"
+    
+    echo "RabbitMQ setup completed!"
+---
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: smartcity
+<<<<<<< HEAD
+=======
+  labels:
+    app: rabbitmq
+    tier: messaging
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+<<<<<<< HEAD
+=======
+      tier: messaging
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+<<<<<<< HEAD
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.12-management
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          value: smartcity
+=======
+        tier: messaging
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.12-management-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5672
+          name: amqp
+        - containerPort: 15672
+          name: management
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_USER
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+<<<<<<< HEAD
+              key: RABBITMQ_PASS
+        ports:
+        - containerPort: 5672
+        - containerPort: 15672
+=======
+              key: RABBITMQ_PASSWORD
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - rabbitmq-diagnostics -q ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - rabbitmq-diagnostics -q check_running
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+        - name: rabbitmq-config
+          mountPath: /etc/rabbitmq
+      volumes:
+      - name: rabbitmq-data
+        emptyDir: {}
+      - name: rabbitmq-config
+        configMap:
+          name: rabbitmq-config
+          defaultMode: 0755
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: smartcity
+<<<<<<< HEAD
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: 5672
+  - name: management
+    port: 15672
+    targetPort: 15672
+=======
+  labels:
+    app: rabbitmq
+spec:
+  type: ClusterIP
+  selector:
+    app: rabbitmq
+    tier: messaging
+  ports:
+  - port: 5672
+    targetPort: 5672
+    protocol: TCP
+    name: amqp
+  - port: 15672
+    targetPort: 15672
+    protocol: TCP
+    name: management
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-management
+  namespace: smartcity
+  labels:
+    app: rabbitmq
+spec:
+  type: NodePort
+  selector:
+    app: rabbitmq
+    tier: messaging
+  ports:
+  - port: 15672
+    targetPort: 15672
+    nodePort: 30672
+    protocol: TCP
+    name: management
+>>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80

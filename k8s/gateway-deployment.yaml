@@ -1,53 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-<<<<<<< HEAD
-  name: oauth-server
-  namespace: smartcity
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: oauth-server
-  template:
-    metadata:
-      labels:
-        app: oauth-server
-    spec:
-      containers:
-      - name: oauth-server
-        image: smartcity/oauth-server:latest
-        envFrom:
-        - configMapRef:
-            name: smartcity-config
-        - secretRef:
-            name: smartcity-secrets
-        ports:
-        - containerPort: 3002
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: oauth-server
-  namespace: smartcity
-spec:
-  selector:
-    app: oauth-server
-  ports:
-  - port: 3002
-    targetPort: 3002
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: api-gateway
-  namespace: smartcity
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: api-gateway
-=======
   name: api-gateway
   namespace: smartcity
   labels:
@@ -64,30 +17,10 @@ spec:
     matchLabels:
       app: api-gateway
       tier: gateway
->>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
   template:
     metadata:
       labels:
         app: api-gateway
-<<<<<<< HEAD
-    spec:
-      containers:
-      - name: api-gateway
-        image: smartcity/api-gateway:latest
-        envFrom:
-        - configMapRef:
-            name: smartcity-config
-        - secretRef:
-            name: smartcity-secrets
-        ports:
-        - containerPort: 3000
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 10
-          periodSeconds: 5
-=======
         tier: gateway
     spec:
       affinity:
@@ -179,15 +112,12 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
->>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
         livenessProbe:
           httpGet:
             path: /health
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
-<<<<<<< HEAD
-=======
           timeoutSeconds: 5
           failureThreshold: 3
         readinessProbe:
@@ -199,22 +129,10 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 3
       restartPolicy: Always
->>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80
 ---
 apiVersion: v1
 kind: Service
 metadata:
-<<<<<<< HEAD
-  name: api-gateway-svc
-  namespace: smartcity
-spec:
-  selector:
-    app: api-gateway
-  ports:
-  - port: 80
-    targetPort: 3000
-  type: ClusterIP
-=======
   name: api-gateway
   namespace: smartcity
   labels:
@@ -233,4 +151,3 @@ spec:
     targetPort: 3000
     protocol: TCP
     name: https
->>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80

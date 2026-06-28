@@ -4,21 +4,6 @@ metadata:
   name: smartcity-config
   namespace: smartcity
 data:
-<<<<<<< HEAD
-  DB_HOST: mysql
-  DB_PORT: "3306"
-  DB_NAME: smartcity
-  RABBITMQ_HOST: rabbitmq
-  RABBITMQ_PORT: "5672"
-  RABBITMQ_USER: guest
-  MQTT_BROKER: mosquitto
-  MQTT_PORT: "1883"
-  CITIZEN_SERVICE_URL: http://citizen-service:8000
-  TRAFFIC_SERVICE_URL: http://traffic-service:8001
-  PARKING_SERVICE_URL: http://parking-service:8002
-  PYTHON_ML_URL: http://python-ml:5000
-  OAUTH_SERVER_URL: http://oauth-server:3002
-=======
   # Database Configuration
   DB_HOST: "mysql.smartcity.svc.cluster.local"
   DB_PORT: "3306"
@@ -35,9 +20,9 @@ data:
   # Gateway Configuration
   GATEWAY_PORT: "3000"
   GATEWAY_LOG_LEVEL: "info"
-  RATE_LIMIT_WINDOW_MS: "900000"        # 15 minutes
+  RATE_LIMIT_WINDOW_MS: "900000"
   RATE_LIMIT_MAX_REQUESTS: "100"
-  AUTH_RATE_LIMIT_WINDOW_MS: "3600000"  # 1 hour
+  AUTH_RATE_LIMIT_WINDOW_MS: "3600000"
   AUTH_RATE_LIMIT_MAX_REQUESTS: "500"
 
   # OAuth Configuration
@@ -65,4 +50,3 @@ data:
   ENABLE_ML_PREDICTIONS: "true"
   ENABLE_ANOMALY_DETECTION: "true"
   ENABLE_RATE_LIMITING: "true"
->>>>>>> 390756edfe468a36e9f58eda491dd946f319bf80

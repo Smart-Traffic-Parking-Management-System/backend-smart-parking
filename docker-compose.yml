@@ -99,6 +99,48 @@ services:
     networks:
       - smartcity-net
 
+  traffic-service:
+    build: ./php-traffic
+    container_name: traffic-service
+    ports:
+      - "8001:8001"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: smartcity
+      DB_USER: root
+      DB_PASSWORD: root123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartcity-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  python-ml-service:
+    build: ./python-ml-service
+    container_name: python-ml-service
+    ports:
+      - "5000:5000"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartcity-net
+
   citizen-service:
     build: ./php-citizen
     container_name: citizen-service

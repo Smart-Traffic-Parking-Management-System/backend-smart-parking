@@ -125,10 +125,14 @@ services:
       - smartcity-net
 
   traffic-service:
-    build: ./php-traffic
+    build:
+      context: ./php-traffic
+      dockerfile: Dockerfile
     container_name: traffic-service
     ports:
       - "8001:8001"
+    volumes:
+      - ./php-traffic:/app
     environment:
       DB_HOST: mysql
       DB_PORT: ${DB_PORT}
@@ -139,18 +143,22 @@ services:
       RABBITMQ_PORT: ${RABBITMQ_PORT}
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASS: ${RABBITMQ_PASS}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     networks:
       - smartcity-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    depends_on:
+      - mysql
+
+  iot-simulator:
+    image: python:3.10-slim
+    container_name: iot-simulator
+    volumes:
+      - ./iot:/app
+    working_dir: /app
+    command: sh -c "pip install paho-mqtt && python3 -u simulator.py"
+    network_mode: "service:mosquitto"
+    depends_on:
+      - mosquitto
+    restart: always
 
   python-ml-service:
     build: ./python-ml-service

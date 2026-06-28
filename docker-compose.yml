@@ -12,6 +12,8 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+    networks:
+      - smartcity-net
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -69,6 +71,8 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    networks:
+      - smartcity-net
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 30s
@@ -76,14 +80,13 @@ services:
       retries: 5
 
   mosquitto:
-      image: eclipse-mosquitto:2.0
-      container_name: mosquitto
-      ports:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    ports:
       - "1883:1883"
-      volumes:
+    volumes:
       - ./iot/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - ./iot/passwd:/mosquitto/config/passwd
-      networks:
+    networks:
       - smartcity-net
 
   nodered:
@@ -111,6 +114,8 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASS: guest
+    networks:
+      - smartcity-net
     depends_on:
       mysql:
         condition: service_healthy
@@ -137,6 +142,8 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASS: guest
+    networks:
+      - smartcity-net
     depends_on:
       mysql:
         condition: service_healthy
@@ -150,3 +157,7 @@ services:
 
 volumes:
   mysql_data:
+
+networks:
+  smartcity-net:
+    driver: bridge

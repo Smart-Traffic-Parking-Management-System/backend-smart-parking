@@ -12,8 +12,8 @@ services:
     image: mysql:8.0
     container_name: smartcity-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: smartcity
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
     ports:
       - "3306:3306"
     volumes:
@@ -26,69 +26,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  rabbitmq:
-    image: rabbitmq:3.12-management
-    container_name: smartcity-rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - smartcity-net
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  rabbitmq-init:
-    image: curlimages/curl:latest
-    container_name: rabbitmq-init
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - smartcity-net
-    restart: "no"
-    entrypoint: >
-      sh -c "
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/exchanges/%2F/city.events -H 'Content-Type: application/json' -d '{\"type\":\"topic\",\"durable\":true}' &&
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/traffic.new -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/parking.update -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/anomaly.alert -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
-        curl -s -u guest:guest -X PUT http://rabbitmq:15672/api/queues/%2F/report.submitted -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
-        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/traffic.new -H 'Content-Type: application/json' -d '{\"routing_key\":\"traffic.new\"}' &&
-        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/parking.update -H 'Content-Type: application/json' -d '{\"routing_key\":\"parking.update\"}' &&
-        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/anomaly.alert -H 'Content-Type: application/json' -d '{\"routing_key\":\"anomaly.alert\"}' &&
-        curl -s -u guest:guest -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/report.submitted -H 'Content-Type: application/json' -d '{\"routing_key\":\"report.submitted\"}' &&
-        echo 'RabbitMQ setup complete!'
-      "
-
-  mosquitto:
-    image: eclipse-mosquitto:2.0
-    container_name: smartcity-mosquitto
-    ports:
-      - "1883:1883"
-    volumes:
-      - ./iot/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - ./iot/passwd:/mosquitto/config/passwd
-    networks:
-      - smartcity-net
-
-  nodered:
-    image: nodered/node-red:3.1
-    container_name: nodered
-    ports:
-      - "1880:1880"
-    volumes:
-      - ./iot/node-red-data:/data
-    networks:
-      - smartcity-net
 
   oauth-server:
     build: ./oauth-server
@@ -132,28 +69,68 @@ services:
     depends_on:
       - oauth-server
 
-  citizen-service:
-    build: ./php-citizen
-    container_name: citizen-service
-    ports:
-      - "8000:8000"
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: smartcity-rabbitmq
     environment:
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: smartcity
-      DB_USER: root
-      DB_PASSWORD: root123
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
     networks:
       - smartcity-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  rabbitmq-init:
+    image: curlimages/curl:latest
+    container_name: rabbitmq-init
     depends_on:
-      mysql:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    networks:
+      - smartcity-net
+    restart: "no"
+    entrypoint: >
+      sh -c "
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/exchanges/%2F/city.events -H 'Content-Type: application/json' -d '{\"type\":\"topic\",\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/queues/%2F/traffic.new -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/queues/%2F/parking.update -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/queues/%2F/anomaly.alert -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X PUT http://rabbitmq:15672/api/queues/%2F/report.submitted -H 'Content-Type: application/json' -d '{\"durable\":true}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/traffic.new -H 'Content-Type: application/json' -d '{\"routing_key\":\"traffic.new\"}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/parking.update -H 'Content-Type: application/json' -d '{\"routing_key\":\"parking.update\"}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/anomaly.alert -H 'Content-Type: application/json' -d '{\"routing_key\":\"anomaly.alert\"}' &&
+        curl -s -u ${RABBITMQ_USER}:${RABBITMQ_PASS} -X POST http://rabbitmq:15672/api/bindings/%2F/e/city.events/q/report.submitted -H 'Content-Type: application/json' -d '{\"routing_key\":\"report.submitted\"}' &&
+        echo 'RabbitMQ setup complete!'
+      "
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./iot/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./iot/passwd:/mosquitto/config/passwd
+    networks:
+      - smartcity-net
+
+  nodered:
+    image: nodered/node-red:3.1
+    container_name: nodered
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./iot/node-red-data:/data
+    networks:
+      - smartcity-net
 
   traffic-service:
     build: ./php-traffic
@@ -162,14 +139,58 @@ services:
       - "8001:8001"
     environment:
       DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: smartcity
-      DB_USER: root
-      DB_PASSWORD: root123
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASS: guest
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartcity-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  python-ml-service:
+    build: ./python-ml-service
+    container_name: python-ml-service
+    ports:
+      - "5000:5000"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartcity-net
+
+  citizen-service:
+    build: ./php-citizen
+    container_name: citizen-service
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
     networks:
       - smartcity-net
     depends_on:
@@ -178,7 +199,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -190,14 +211,14 @@ services:
       - "8002:8002"
     environment:
       DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: smartcity
-      DB_USER: root
-      DB_PASSWORD: root123
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASS: guest
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
     networks:
       - smartcity-net
     depends_on:
@@ -205,20 +226,11 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-
-  python-ml-service:
-    build: ./python-ml-service
-    container_name: python-ml-service
-    ports:
-      - "5000:5000"
-    environment:
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-    networks:
-      - smartcity-net
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:v2.48.0
@@ -235,6 +247,9 @@ services:
     container_name: smartcity-grafana
     ports:
       - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana_data:/var/lib/grafana
     networks:

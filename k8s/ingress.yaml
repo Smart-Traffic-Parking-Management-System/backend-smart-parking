@@ -1,0 +1,95 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smartcity-ingress
+  namespace: smartcity
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - smartcity.example.com
+    secretName: smartcity-tls
+  rules:
+  - host: smartcity.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 80
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 80
+      - path: /api/citizens
+        pathType: Prefix
+        backend:
+          service:
+            name: citizen-service
+            port:
+              number: 8000
+      - path: /api/traffic
+        pathType: Prefix
+        backend:
+          service:
+            name: traffic-service
+            port:
+              number: 8001
+      - path: /api/parking
+        pathType: Prefix
+        backend:
+          service:
+            name: parking-service
+            port:
+              number: 8002
+      - path: /predict
+        pathType: Prefix
+        backend:
+          service:
+            name: python-ml-service
+            port:
+              number: 5000
+      - path: /detect
+        pathType: Prefix
+        backend:
+          service:
+            name: python-ml-service
+            port:
+              number: 5000
+      - path: /model
+        pathType: Prefix
+        backend:
+          service:
+            name: python-ml-service
+            port:
+              number: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartcity-ingress-nginx
+  namespace: smartcity
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP

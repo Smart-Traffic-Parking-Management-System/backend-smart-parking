@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smartcity-config
+  namespace: smartcity
+data:
+  # Database Configuration
+  DB_HOST: "mysql.smartcity.svc.cluster.local"
+  DB_PORT: "3306"
+  DB_NAME: "smartcity"
+  DB_USER: "smartcity_app"
+
+  # Service URLs (internal DNS)
+  CITIZEN_SERVICE_URL: "http://citizen-service.smartcity.svc.cluster.local:8000"
+  TRAFFIC_SERVICE_URL: "http://traffic-service.smartcity.svc.cluster.local:8001"
+  PARKING_SERVICE_URL: "http://parking-service.smartcity.svc.cluster.local:8002"
+  PYTHON_ML_URL: "http://python-ml-service.smartcity.svc.cluster.local:5000"
+  OAUTH_SERVER_URL: "http://oauth-server.smartcity.svc.cluster.local:3002"
+
+  # Gateway Configuration
+  GATEWAY_PORT: "3000"
+  GATEWAY_LOG_LEVEL: "info"
+  RATE_LIMIT_WINDOW_MS: "900000"        # 15 minutes
+  RATE_LIMIT_MAX_REQUESTS: "100"
+  AUTH_RATE_LIMIT_WINDOW_MS: "3600000"  # 1 hour
+  AUTH_RATE_LIMIT_MAX_REQUESTS: "500"
+
+  # OAuth Configuration
+  OAUTH_PORT: "3002"
+  JWT_EXPIRES_IN: "3600"
+  OAUTH_CLIENT_ID: "smartcity_client"
+
+  # RabbitMQ Configuration
+  RABBITMQ_HOST: "rabbitmq.smartcity.svc.cluster.local"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: "smartcity"
+  RABBITMQ_MANAGEMENT_PORT: "15672"
+
+  # MQTT Configuration
+  MQTT_BROKER: "mosquitto.smartcity.svc.cluster.local"
+  MQTT_PORT: "1883"
+  MQTT_USER: "iot_device"
+
+  # Python ML Configuration
+  ML_PORT: "5000"
+  ML_LOG_LEVEL: "info"
+  ML_MODEL_PATH: "/app/models"
+
+  # Feature Flags
+  ENABLE_ML_PREDICTIONS: "true"
+  ENABLE_ANOMALY_DETECTION: "true"
+  ENABLE_RATE_LIMITING: "true"

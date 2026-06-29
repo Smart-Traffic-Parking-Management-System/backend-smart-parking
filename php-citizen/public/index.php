@@ -71,7 +71,7 @@ if ($uri === '/health' && $method === 'GET') {
 
 // REGISTER CITIZEN
 elseif ($uri === '/api/citizens' && $method === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
+    $rawInput = file_get_contents("php://input"); $input = json_decode($rawInput, true) ?? []; if (empty($input)) { parse_str($rawInput, $input); }
     if (empty($input['nik']) || empty($input['email']) || empty($input['password'])) {
         sendResponse(['status'=>'error','code'=>422,'message'=>'NIK, email, dan password wajib diisi','timestamp'=>date('c'),'service'=>'citizen-service'], 422);
     }
@@ -95,23 +95,24 @@ elseif ($uri === '/api/citizens' && $method === 'POST') {
     $data['citizens'][] = $newCitizen;
     $data['next_id']++;
     saveData($dataFile, $data);
-    unset($newCitizen['password']); 
-
-    // Simpan notifikasi greeting
+    
+    // ===== BUAT NOTIFIKASI SELAMAT DATANG =====
     $notifData = loadData($notifFile);
-    $greeting = [
+    $newNotif = [
         'id' => $notifData['next_id'],
         'citizen_id' => $newCitizen['id'],
         'title' => 'Selamat Datang!',
-        'body' => 'Halo ' . $newCitizen['name'] . ', selamat bergabung di Smart Traffic & Parking System!',
+        'body' => 'Selamat bergabung di Smart Traffic System',
         'type' => 'info',
         'is_read' => 0,
         'created_at' => date('c')
     ];
-    $notifData['notifications'][] = $greeting;
+    $notifData['notifications'][] = $newNotif;
     $notifData['next_id']++;
     saveData($notifFile, $notifData);
+    // ==========================================
     
+    unset($newCitizen['password']);
     sendResponse(['status'=>'success','code'=>201,'data'=>$newCitizen,'message'=>'Warga berhasil didaftarkan','timestamp'=>date('c'),'service'=>'citizen-service'], 201);
 }
 
@@ -137,7 +138,7 @@ elseif (preg_match('/^\/api\/citizens\/(\d+)$/', $uri, $matches) && $method === 
 // UPDATE CITIZEN PROFILE
 elseif (preg_match('/^\/api\/citizens\/(\d+)$/', $uri, $matches) && $method === 'PUT') {
     $id = (int)$matches[1];
-    $input = json_decode(file_get_contents('php://input'), true);
+    $rawInput = file_get_contents("php://input"); $input = json_decode($rawInput, true) ?? []; if (empty($input)) { parse_str($rawInput, $input); }
     $data = loadData($dataFile);
     $found = false;
     foreach ($data['citizens'] as &$citizen) {
@@ -161,7 +162,7 @@ elseif (preg_match('/^\/api\/citizens\/(\d+)$/', $uri, $matches) && $method === 
 
 // SUBMIT REPORT
 elseif ($uri === '/api/reports' && $method === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
+    $rawInput = file_get_contents("php://input"); $input = json_decode($rawInput, true) ?? []; if (empty($input)) { parse_str($rawInput, $input); }
     $data = loadData($reportFile);
     $newReport = [
         'id' => $data['next_id'],
@@ -203,7 +204,7 @@ elseif ($uri === '/api/reports' && $method === 'GET') {
 // UPDATE REPORT STATUS
 elseif (preg_match('/^\/api\/reports\/(\d+)\/status$/', $uri, $matches) && $method === 'PATCH') {
     $id = (int)$matches[1];
-    $input = json_decode(file_get_contents('php://input'), true);
+    $rawInput = file_get_contents("php://input"); $input = json_decode($rawInput, true) ?? []; if (empty($input)) { parse_str($rawInput, $input); }
     $data = loadData($reportFile);
     $found = false;
     foreach ($data['reports'] as &$report) {

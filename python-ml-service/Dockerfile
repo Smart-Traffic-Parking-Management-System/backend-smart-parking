@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Kita Copy semua file ke dalam Docker
 COPY . .
 
+# Bangun model ML sekali saat image dibuat
+RUN python train_models.py
+
 # Konfigurasi Healthcheck sesuai standar plan.md agar terdeteksi "Healthy" oleh Kubernetes/Docker
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:5000/health || exit 1

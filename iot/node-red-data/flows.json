@@ -45,7 +45,7 @@
         "nl": false,
         "rap": false,
         "inputs": 0,
-        "x": 150,
+        "x": 80,
         "y": 100,
         "wires": [
             [
@@ -60,11 +60,16 @@
         "name": "Parse & Validate Traffic",
         "func": "const payload = msg.payload;\nconst topicParts = msg.topic.split('/');\nconst zone = topicParts[1];\n\nconst zoneMap = { zone1: 1, zone2: 2, zone3: 3, zone4: 4, zone5: 5 };\n\nmsg.payload = {\n    zone_id: zoneMap[zone] || 1,\n    vehicle_density: payload.vehicle_density,\n    avg_speed_kmh: payload.avg_speed_kmh,\n    source: 'iot'\n};\n\nreturn msg;",
         "outputs": 1,
-        "x": 400,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
         "y": 100,
         "wires": [
             [
-                "http-post-traffic"
+                "e6a957eca541d108"
             ]
         ]
     },
@@ -111,6 +116,12 @@
         "pauseType": "delay",
         "timeout": "60",
         "timeoutUnits": "seconds",
+        "rate": "",
+        "nbRateUnits": "",
+        "randomFirst": "",
+        "randomLast": "",
+        "randomUnits": "seconds",
+        "allowrate": false,
         "outputs": 1,
         "x": 650,
         "y": 260,
@@ -148,7 +159,7 @@
         "y": 320,
         "wires": [
             [
-                "http-post-parking"
+                "a59a229ecfcbab8f"
             ]
         ]
     },
@@ -165,10 +176,177 @@
                 "valueType": "application/json"
             }
         ],
-        "x": 650,
+        "x": 750,
         "y": 320,
         "wires": [
             []
+        ]
+    },
+    {
+        "id": "1cab3e151dc9b469",
+        "type": "inject",
+        "z": "tab-traffic",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "traffic/zone5",
+        "payload": "{     \"vehicle_density\": 75,     \"avg_speed_kmh\": 32.5 }",
+        "payloadType": "json",
+        "x": 130,
+        "y": 160,
+        "wires": [
+            [
+                "fn-parse-traffic"
+            ]
+        ]
+    },
+    {
+        "id": "a90eff07d4995189",
+        "type": "inject",
+        "z": "tab-traffic",
+        "name": "Get Token on Start",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 440,
+        "wires": [
+            [
+                "dee24b2a131bf1ee"
+            ]
+        ]
+    },
+    {
+        "id": "7079c5d45d84bbb7",
+        "type": "http request",
+        "z": "tab-traffic",
+        "name": "Request Service Token",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://api-gateway:3000/oauth/service-token",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "Content-Type",
+                "keyValue": "",
+                "valueType": "application/json",
+                "valueValue": ""
+            }
+        ],
+        "x": 430,
+        "y": 440,
+        "wires": [
+            [
+                "55e04d424206f8b9"
+            ]
+        ]
+    },
+    {
+        "id": "55e04d424206f8b9",
+        "type": "function",
+        "z": "tab-traffic",
+        "name": "Simpan Token",
+        "func": "const token = msg.payload?.data?.access_token;\nif (token) {\n    flow.set('service_token', token);\n    node.log('Token saved');\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 640,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e6a957eca541d108",
+        "type": "function",
+        "z": "tab-traffic",
+        "name": "Add Auth Token",
+        "func": "msg.headers = msg.headers || {};\nmsg.headers[\"Authorization\"] = \"Bearer \" + flow.get('service_token');\nmsg.headers[\"Content-Type\"] = \"application/json\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 40,
+        "wires": [
+            [
+                "http-post-traffic"
+            ]
+        ]
+    },
+    {
+        "id": "a59a229ecfcbab8f",
+        "type": "function",
+        "z": "tab-traffic",
+        "name": "Add Auth Token",
+        "func": "msg.headers = msg.headers || {};\nmsg.headers[\"Authorization\"] = \"Bearer \" + flow.get('service_token');\nmsg.headers[\"Content-Type\"] = \"application/json\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 380,
+        "wires": [
+            [
+                "http-post-parking"
+            ]
+        ]
+    },
+    {
+        "id": "dee24b2a131bf1ee",
+        "type": "function",
+        "z": "tab-traffic",
+        "name": "Set Token Body",
+        "func": "msg.payload = { \"service_name\": \"nodered\" };\nmsg.headers = { \"Content-Type\": \"application/json\" };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 300,
+        "y": 540,
+        "wires": [
+            [
+                "7079c5d45d84bbb7"
+            ]
         ]
     }
 ]

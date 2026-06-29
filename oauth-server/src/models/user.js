@@ -1,17 +1,6 @@
-/**
- * User Management
- * 
- * Sistem user in-memory + support untuk DB integration
- * Admin: 1 user khusus
- * Citizens: Bisa create banyak user melalui /register
- */
-
 const users = new Map();
 const revokedTokens = new Map();
 
-/**
- * Initialize default admin user
- */
 function initializeAdminUser() {
   const bcrypt = require('bcryptjs');
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';
@@ -29,16 +18,10 @@ function initializeAdminUser() {
   });
 }
 
-/**
- * Get user by username
- */
 function getUserByUsername(username) {
   return users.get(username) || null;
 }
 
-/**
- * Get user by email
- */
 function getUserByEmail(email) {
   for (const user of users.values()) {
     if (user.email === email) {
@@ -48,9 +31,6 @@ function getUserByEmail(email) {
   return null;
 }
 
-/**
- * Create new citizen user
- */
 function createUser(username, email, passwordHash, role = 'citizen') {
   if (getUserByUsername(username) || getUserByEmail(email)) {
     return null; // Duplicate user
@@ -72,9 +52,7 @@ function createUser(username, email, passwordHash, role = 'citizen') {
   return { ...newUser, password_hash: undefined }; // Hide password
 }
 
-/**
- * Revoke token (simpan token yang di-revoke)
- */
+
 function revokeToken(token) {
   revokedTokens.set(token, {
     token,
@@ -82,16 +60,11 @@ function revokeToken(token) {
   });
 }
 
-/**
- * Check if token is revoked
- */
 function isTokenRevoked(token) {
   return revokedTokens.has(token);
 }
 
-/**
- * List all active users
- */
+
 function listAllUsers() {
   return Array.from(users.values()).map(u => ({
     id: u.id,
@@ -102,7 +75,6 @@ function listAllUsers() {
   }));
 }
 
-// Initialize admin on module load
 initializeAdminUser();
 
 module.exports = {

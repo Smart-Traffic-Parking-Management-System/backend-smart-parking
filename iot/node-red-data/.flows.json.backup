@@ -7,16 +7,51 @@
         "info": ""
     },
     {
+        "id": "mqtt-broker-config",
+        "type": "mqtt-broker",
+        "name": "Mosquitto Broker",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "15",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
         "id": "mqtt-traffic-in",
         "type": "mqtt in",
         "z": "tab-traffic",
         "name": "MQTT Traffic In",
         "topic": "city/+/traffic",
         "qos": "1",
+        "datatype": "auto-detect",
         "broker": "mqtt-broker-config",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
         "x": 150,
         "y": 100,
-        "wires": [["fn-parse-traffic"]]
+        "wires": [
+            [
+                "fn-parse-traffic"
+            ]
+        ]
     },
     {
         "id": "fn-parse-traffic",
@@ -25,9 +60,18 @@
         "name": "Parse & Validate Traffic",
         "func": "const payload = msg.payload;\nconst topicParts = msg.topic.split('/');\nconst zone = topicParts[1];\n\nconst zoneMap = { zone1: 1, zone2: 2, zone3: 3, zone4: 4, zone5: 5 };\n\nmsg.payload = {\n    zone_id: zoneMap[zone] || 1,\n    vehicle_density: payload.vehicle_density,\n    avg_speed_kmh: payload.avg_speed_kmh,\n    source: 'iot'\n};\n\nreturn msg;",
         "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
         "x": 400,
         "y": 100,
-        "wires": [["http-post-traffic"]]
+        "wires": [
+            [
+                "http-post-traffic"
+            ]
+        ]
     },
     {
         "id": "http-post-traffic",
@@ -37,11 +81,18 @@
         "method": "POST",
         "url": "http://api-gateway:3000/iot/traffic",
         "headers": [
-            { "keyType": "Content-Type", "valueType": "application/json" }
+            {
+                "keyType": "Content-Type",
+                "valueType": "application/json"
+            }
         ],
         "x": 650,
         "y": 100,
-        "wires": [["catch-http-error"]]
+        "wires": [
+            [
+                "catch-http-error"
+            ]
+        ]
     },
     {
         "id": "catch-http-error",
@@ -51,7 +102,11 @@
         "scope": null,
         "x": 650,
         "y": 180,
-        "wires": [["delay-retry"]]
+        "wires": [
+            [
+                "delay-retry"
+            ]
+        ]
     },
     {
         "id": "delay-retry",
@@ -61,9 +116,20 @@
         "pauseType": "delay",
         "timeout": "60",
         "timeoutUnits": "seconds",
+        "rate": "",
+        "nbRateUnits": "",
+        "randomFirst": "",
+        "randomLast": "",
+        "randomUnits": "seconds",
+        "allowrate": false,
+        "outputs": 1,
         "x": 650,
         "y": 260,
-        "wires": [["http-post-traffic"]]
+        "wires": [
+            [
+                "http-post-traffic"
+            ]
+        ]
     },
     {
         "id": "mqtt-parking-in",
@@ -73,9 +139,14 @@
         "topic": "city/+/parking",
         "qos": "1",
         "broker": "mqtt-broker-config",
+        "inputs": 0,
         "x": 150,
         "y": 320,
-        "wires": [["fn-parse-parking"]]
+        "wires": [
+            [
+                "fn-parse-parking"
+            ]
+        ]
     },
     {
         "id": "fn-parse-parking",
@@ -86,7 +157,11 @@
         "outputs": 1,
         "x": 400,
         "y": 320,
-        "wires": [["http-post-parking"]]
+        "wires": [
+            [
+                "http-post-parking"
+            ]
+        ]
     },
     {
         "id": "http-post-parking",
@@ -96,23 +171,73 @@
         "method": "POST",
         "url": "http://api-gateway:3000/iot/parking",
         "headers": [
-            { "keyType": "Content-Type", "valueType": "application/json" }
+            {
+                "keyType": "Content-Type",
+                "valueType": "application/json"
+            }
         ],
         "x": 650,
         "y": 320,
-        "wires": [[]]
+        "wires": [
+            []
+        ]
     },
     {
-        "id": "mqtt-broker-config",
-        "type": "mqtt-broker",
-        "name": "Mosquitto Broker",
-        "broker": "mosquitto",
-        "port": "1883",
-        "clientid": "",
-        "usetls": false,
-        "credentials": {
-            "user": "iot_device",
-            "password": "rahasia123"
-        }
+        "id": "1cab3e151dc9b469",
+        "type": "inject",
+        "z": "tab-traffic",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "traffic/zone5",
+        "payload": "{     \"vehicle_density\": 75,     \"avg_speed_kmh\": 32.5 }",
+        "payloadType": "json",
+        "x": 130,
+        "y": 160,
+        "wires": [
+            [
+                "fn-parse-traffic"
+            ]
+        ]
+    },
+    {
+        "id": "720c286c7ebf3a40",
+        "type": "inject",
+        "z": "tab-traffic",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 420,
+        "y": 260,
+        "wires": [
+            [
+                "delay-retry"
+            ]
+        ]
     }
 ]

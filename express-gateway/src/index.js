@@ -1,45 +1,3 @@
-/**
- * express-gateway/src/index.js
- *
- * Matriks akses yang diterapkan:
- *
- * PUBLIC (tanpa auth)
- *   GET  /health
- *   GET  /                        (info)
- *   POST /api/citizens            (register)
- *   GET  /health pada semua downstream (dihandle service masing-masing)
- *
- * SERVICE only (client_credentials scope=service)
- *   GET  /metrics
- *   POST /iot/traffic
- *   POST /iot/parking
- *
- * CITIZEN + ADMIN (JWT role=citizen|admin)
- *   GET/PUT  /api/citizens/:id    (citizen: hanya milik sendiri — dicek di PHP)
- *   POST     /api/reports
- *   GET      /api/reports         (citizen: milik sendiri — dicek di PHP)
- *   GET/PATCH /api/notifications*
- *   GET      /api/traffic/current
- *   GET      /api/traffic/history
- *   GET      /api/roads
- *   POST     /api/incidents
- *   GET      /api/incidents
- *   GET/POST /api/parking/*       (kecuali /api/parking/readings)
- *   POST     /predict/traffic
- *   POST     /predict/parking
- *
- * ADMIN only (JWT role=admin)
- *   PATCH /api/reports/:id/status
- *   PATCH /api/incidents/:id/resolve
- *   GET   /model/feature-importance
- *   POST  /predict/batch
- *
- * ADMIN + SERVICE
- *   POST /detect/anomaly
- *   GET  /model/feature-importance
- *   POST /predict/batch
- */
-
 require('dotenv').config();
 const fs = require('fs');
 const express  = require('express');
@@ -279,7 +237,6 @@ app.use('/oauth', createProxyMiddleware({
   },
 }));
 
-// ─── OAuth introspection helper ────────────────────────────────────────────────
 async function introspectToken(token) {
   try {
     const url = `${oauthServerUrl.replace(/\/$/, '')}${oauthIntrospectPath}`;
@@ -319,7 +276,6 @@ async function introspectToken(token) {
   }
 }
 
-// Digunakan untuk /iot/* dan endpoint ML internal (scope=service)
 async function oauthIntrospectionMiddleware(req, res, next) {
   const token = getBearerToken(req);
   const authHeader = req.headers.authorization || '';

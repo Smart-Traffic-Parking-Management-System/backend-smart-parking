@@ -1,10 +1,3 @@
-/**
- * JWT Token Management
- * 
- * Semua token divalidasi menggunakan JWT signature verification.
- * Revoked tokens disimpan dalam memory map untuk instant revocation.
- */
-
 const jwt = require('jsonwebtoken');
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -17,9 +10,6 @@ if (!jwtSecret) {
 
 const revokedTokens = new Map();
 
-/**
- * Create access token (short-lived)
- */
 function createAccessToken(payload) {
   return jwt.sign(
     payload,
@@ -28,9 +18,6 @@ function createAccessToken(payload) {
   );
 }
 
-/**
- * Create refresh token (long-lived)
- */
 function createRefreshToken(payload) {
   return jwt.sign(
     payload,
@@ -39,9 +26,6 @@ function createRefreshToken(payload) {
   );
 }
 
-/**
- * Create token pair (access + refresh)
- */
 function createTokenPair(user) {
   const payload = {
     user_id: user.id,
@@ -60,9 +44,6 @@ function createTokenPair(user) {
   };
 }
 
-/**
- * Create a dedicated service token for IoT/internal callers
- */
 function createServiceToken(serviceName = 'iot-service') {
   const payload = {
     user_id: 999,
@@ -80,9 +61,6 @@ function createServiceToken(serviceName = 'iot-service') {
   };
 }
 
-/**
- * Verify and decode JWT
- */
 function verifyToken(token) {
   try {
     // Check if token is revoked
@@ -114,17 +92,10 @@ function revokeToken(token) {
   }
 }
 
-/**
- * Check if token is revoked
- */
 function isTokenRevoked(token) {
   return revokedTokens.has(token);
 }
 
-/**
- * Introspect token (untuk gateway atau service lain)
- * Returns: { active, user_id, username, role, exp, ... }
- */
 function introspectToken(token) {
   const decoded = verifyToken(token);
   if (!decoded) {

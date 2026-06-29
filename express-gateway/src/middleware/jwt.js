@@ -1,9 +1,3 @@
-/**
- * jwt.js
- * Middleware verifikasi JWT untuk protected routes.
- * Set req.user = decoded JWT payload setelah verifikasi berhasil.
- */
-
 const jwt = require('jsonwebtoken');
 
 function getBearerToken(req) {

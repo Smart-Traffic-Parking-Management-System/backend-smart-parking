@@ -56,10 +56,10 @@ services:
       OAUTH_SERVER_URL: http://oauth-server:3002
       OAUTH_INTROSPECT_PATH: /oauth/introspect
       OAUTH_INTROSPECTION_API_KEY: ${OAUTH_INTROSPECTION_API_KEY}
-      CITIZEN_SERVICE_URL: ${CITIZEN_SERVICE_URL}
-      TRAFFIC_SERVICE_URL: ${TRAFFIC_SERVICE_URL}
-      PARKING_SERVICE_URL: ${PARKING_SERVICE_URL}
-      PYTHON_ML_URL: ${PYTHON_ML_URL}
+      CITIZEN_SERVICE_URL: ${CITIZEN_SERVICE_URL:-http://citizen-service:8000}
+      TRAFFIC_SERVICE_URL: ${TRAFFIC_SERVICE_URL:-http://traffic-service:8001}
+      PARKING_SERVICE_URL: ${PARKING_SERVICE_URL:-http://parking-service:8002}
+      PYTHON_ML_URL: ${PYTHON_ML_URL:-http://python-ml-service:5000}
     networks:
       - smartcity-net
     depends_on:

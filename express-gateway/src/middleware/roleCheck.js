@@ -1,9 +1,3 @@
-/**
- * roleCheck.js
- * Middleware untuk memverifikasi role dari JWT payload (req.user).
- * Harus dipasang SETELAH jwtMiddleware.
- */
-
 function requireRole(...allowedRoles) {
   return (req, res, next) => {
     const role = req.user?.role;
@@ -28,11 +22,6 @@ function requireRole(...allowedRoles) {
   };
 }
 
-/**
- * requireServiceToken — khusus untuk endpoint IoT dan internal.
- * Memeriksa req.oauth (di-set oleh oauthIntrospectionMiddleware),
- * dan memastikan scope-nya 'service'.
- */
 function requireServiceToken(req, res, next) {
   const oauth = req.oauth;
 

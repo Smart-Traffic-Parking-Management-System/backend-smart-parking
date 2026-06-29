@@ -17,7 +17,8 @@ except Exception as e:
 # Konfigurasi RabbitMQ (menggunakan default env, sedangkan penggunaan localhost untuk testing lokal))
 RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
 RABBITMQ_PORT = int(os.getenv('RABBITMQ_PORT', 5672))
-
+RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'guest')
+RABBITMQ_PASS = os.getenv('RABBITMQ_PASS', 'guest')
 history_data = {}
 
 def callback(ch, method, props, body):
@@ -81,7 +82,12 @@ def callback(ch, method, props, body):
         print(f"Error memproses pesan: {e}")
 
 try:
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, port=RABBITMQ_PORT))
+    credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
+    connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host=RABBITMQ_HOST, 
+        port=RABBITMQ_PORT,
+        credentials=credentials
+    ))
     channel = connection.channel()
     
     channel.exchange_declare(exchange='city.events', exchange_type='topic', durable=True)

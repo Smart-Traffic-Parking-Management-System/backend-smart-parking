@@ -1,8 +1,3 @@
-/**
- * healthCheck.js
- * Cek status semua upstream service secara paralel.
- */
-
 const axios = require('axios');
 
 async function checkEndpoint(name, url) {

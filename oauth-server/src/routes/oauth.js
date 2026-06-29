@@ -1,16 +1,3 @@
-/**
- * OAuth Routes - Simplified JWT-based Authentication
- * 
- * Endpoints:
- * - POST /register          → Register citizen
- * - POST /login             → Login any user (admin/citizen)
- * - POST /refresh           → Refresh access token
- * - POST /revoke            → Revoke token
- * - POST /introspect        → Verify token (Gateway use)
- * - GET  /google            → Google OAuth start
- * - GET  /google/callback   → Google OAuth callback
- */
-
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
@@ -35,9 +22,8 @@ const {
 
 const router = express.Router();
 
-// ────────────────────────────────────────────────────────────────────────────────
-// Helper: Format response JSON (sesuai plan.md standar)
-// ────────────────────────────────────────────────────────────────────────────────
+
+// Helper: Format response JSON 
 function formatResponse(status, code, data, message) {
   return {
     status,
@@ -50,10 +36,6 @@ function formatResponse(status, code, data, message) {
 }
 
 
-// ────────────────────────────────────────────────────────────────────────────────
-// POST /register
-// Register citizen user baru (flexible, tidak terbatas hanya "warga1")
-// ────────────────────────────────────────────────────────────────────────────────
 router.post('/register', (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -110,10 +92,6 @@ router.post('/register', (req, res) => {
   }
 });
 
-// ────────────────────────────────────────────────────────────────────────────────
-// POST /login
-// Login user (admin atau citizen) dengan username + password
-// ────────────────────────────────────────────────────────────────────────────────
 router.post('/login', (req, res) => {
   try {
     const { username, password } = req.body;
@@ -146,10 +124,6 @@ router.post('/login', (req, res) => {
   }
 });
 
-// ────────────────────────────────────────────────────────────────────────────────
-// POST /service-token
-// Issue a dedicated service token for IoT/internal requests
-// ────────────────────────────────────────────────────────────────────────────────
 router.post('/service-token', (req, res) => {
   try {
     const { service_name } = req.body;
@@ -168,10 +142,6 @@ router.post('/service-token', (req, res) => {
   }
 });
 
-// ────────────────────────────────────────────────────────────────────────────────
-// POST /refresh
-// Refresh access token menggunakan refresh token
-// ────────────────────────────────────────────────────────────────────────────────
 router.post('/refresh', (req, res) => {
   try {
     const { refresh_token } = req.body;
@@ -213,10 +183,6 @@ router.post('/refresh', (req, res) => {
   }
 });
 
-// ────────────────────────────────────────────────────────────────────────────────
-// POST /revoke
-// Revoke token (add ke blacklist)
-// ────────────────────────────────────────────────────────────────────────────────
 router.post('/revoke', (req, res) => {
   try {
     const { token } = req.body;
@@ -246,11 +212,6 @@ router.post('/revoke', (req, res) => {
   }
 });
 
-// ────────────────────────────────────────────────────────────────────────────────
-// POST /introspect
-// Verify token (untuk Gateway dan service lain)
-// Butuh Authorization header atau x-api-key
-// ────────────────────────────────────────────────────────────────────────────────
 router.post('/introspect', (req, res) => {
   try {
     const { token } = req.body;
@@ -276,9 +237,6 @@ router.post('/introspect', (req, res) => {
 });
 
 
-// ────────────────────────────────────────────────────────────────────────────────
-// Google OAuth (optional)
-// ────────────────────────────────────────────────────────────────────────────────
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -373,9 +331,6 @@ if (googleClientId && googleClientSecret && googleCallbackUrl) {
   });
 }
 
-// ────────────────────────────────────────────────────────────────────────────────
-// Development debug endpoints
-// ────────────────────────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV === 'development') {
   router.get('/debug/users', (req, res) => {
     return res.json(

@@ -1,9 +1,3 @@
-/**
- * rateLimit.js
- * Global limiter: 100 req / 15 menit per IP (semua traffic).
- * Auth limiter : 500 req / jam per token atau IP (protected routes).
- */
-
 const rateLimit = require('express-rate-limit');
 
 const globalLimiter = rateLimit({

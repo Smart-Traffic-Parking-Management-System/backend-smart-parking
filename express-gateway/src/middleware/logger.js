@@ -1,8 +1,3 @@
-/**
- * logger.js
- * Request logger sederhana: timestamp, method, path, status, response time.
- * Digunakan sebagai pelengkap morgan untuk format custom JSON.
- */
 
 function requestLogger(req, res, next) {
   const start = Date.now();

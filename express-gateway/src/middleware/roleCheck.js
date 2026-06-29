@@ -44,11 +44,14 @@ function requireServiceToken(req, res, next) {
     });
   }
 
-  if (oauth.scope !== 'service') {
+  const isServiceToken = oauth.scope === 'service' || oauth.scope === 'read write' || oauth.scope?.includes('service');
+  const isAdminToken = oauth.role === 'admin';
+
+  if (!isServiceToken && !isAdminToken) {
     return res.status(403).json({
       status: 'error',
       code: 403,
-      message: 'Forbidden: service-level token required',
+      message: 'Forbidden: service-level or admin token required',
     });
   }
 

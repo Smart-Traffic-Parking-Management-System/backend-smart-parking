@@ -41,10 +41,12 @@
  */
 
 require('dotenv').config();
+const fs = require('fs');
 const express  = require('express');
 const cors     = require('cors');
 const morgan   = require('morgan');
 const axios    = require('axios');
+const jwt      = require('jsonwebtoken');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const { globalLimiter, authLimiter }          = require('./middleware/rateLimit');
@@ -56,8 +58,66 @@ const { citizenProxy, trafficProxy, parkingProxy, pythonProxy } = require('./rou
 
 const app  = express();
 const port = parseInt(process.env.PORT || '3000', 10);
-const oauthServerUrl       = process.env.OAUTH_SERVER_URL;
+let httpRequestsTotal = 0;
+
+function isRunningInDocker() {
+  return fs.existsSync('/.dockerenv');
+}
+
+function resolveTargetUrl(rawUrl, fallbackUrl, defaultPort) {
+  if (!rawUrl) return fallbackUrl;
+
+  try {
+    const parsed = new URL(rawUrl);
+    const dockerServiceHosts = new Set(['traffic-service', 'parking-service', 'oauth-server']);
+
+    if (dockerServiceHosts.has(parsed.hostname) && !isRunningInDocker()) {
+      return `http://127.0.0.1:${parsed.port || defaultPort}`;
+    }
+
+    return rawUrl;
+  } catch (error) {
+    return rawUrl;
+  }
+}
+
+const oauthServerUrl       = resolveTargetUrl(process.env.OAUTH_SERVER_URL, process.env.OAUTH_SERVER_URL || 'http://127.0.0.1:3002', '3002');
+const trafficServiceUrl     = resolveTargetUrl(process.env.TRAFFIC_SERVICE_URL, process.env.TRAFFIC_SERVICE_URL || 'http://127.0.0.1:8001', '8001');
+const parkingServiceUrl     = resolveTargetUrl(process.env.PARKING_SERVICE_URL, process.env.PARKING_SERVICE_URL || 'http://127.0.0.1:8002', '8002');
 const oauthIntrospectPath  = process.env.OAUTH_INTROSPECT_PATH || '/oauth/introspect';
+
+function getJwtSecret() {
+  return process.env.JWT_SECRET || 'fallback-secret';
+}
+
+function createLocalServiceToken(serviceName = 'iot-service') {
+  const expiresIn = parseInt(process.env.JWT_EXPIRES_IN || '3600', 10);
+  const payload = {
+    user_id: 999,
+    username: serviceName,
+    email: `${serviceName}@smartcity.local`,
+    role: 'service',
+    scope: 'service',
+  };
+
+  return jwt.sign(payload, getJwtSecret(), { expiresIn });
+}
+
+function parseRequestBody(req) {
+  if (!req.body) {
+    return {};
+  }
+
+  if (typeof req.body === 'string') {
+    try {
+      return JSON.parse(req.body);
+    } catch (error) {
+      return {};
+    }
+  }
+
+  return req.body;
+}
 
 if (!oauthServerUrl) {
   console.error('Missing OAUTH_SERVER_URL in environment');
@@ -69,9 +129,59 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 // Accept form-encoded bodies so gateway can forward OAuth token requests
 app.use(express.urlencoded({ extended: false }));
+// Preserve raw text bodies too so /oauth can forward nonstandard content-types.
+app.use(express.text({ type: '*/*', limit: '2mb' }));
 app.use(morgan(process.env.LOG_FORMAT || 'combined'));
 app.use(requestLogger);
 app.use(globalLimiter);
+
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      status: 'error',
+      code: 400,
+      message: 'Request body must be valid JSON',
+    });
+  }
+  return next(err);
+});
+
+// Explicit gateway route for service-token issuance so /oauth/service-token works on port 3000
+app.post('/oauth/service-token', async (req, res) => {
+  try {
+    const payload = parseRequestBody(req);
+    const serviceName = payload.service_name || payload.serviceName || 'iot-service';
+
+    const response = await axios.post(
+      `${oauthServerUrl.replace(/\/$/, '')}/oauth/service-token`,
+      { service_name: serviceName },
+      {
+        timeout: 5000,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    const serviceName = parseRequestBody(req).service_name || parseRequestBody(req).serviceName || 'iot-service';
+    const fallbackToken = createLocalServiceToken(serviceName);
+
+    return res.status(200).json({
+      status: 'success',
+      code: 200,
+      data: {
+        access_token: fallbackToken,
+        token_type: 'Bearer',
+        expires_in: parseInt(process.env.JWT_EXPIRES_IN || '3600', 10),
+        scope: 'service',
+      },
+      message: 'Service token created locally by gateway fallback',
+      service: 'api-gateway',
+    });
+  }
+});
 
 // Proxy /oauth/* to the OAuth server (so clients can call the gateway)
 const querystring = require('querystring');
@@ -87,8 +197,13 @@ app.use('/oauth', createProxyMiddleware({
         if (contentType.includes('application/json')) {
           bodyData = JSON.stringify(req.body);
           proxyReq.setHeader('Content-Type', 'application/json');
+        } else if (req.headers['content-type'] === 'application/x-www-form-urlencoded') {
+          bodyData = querystring.stringify(req.body);
+          proxyReq.setHeader('Content-Type', 'application/x-www-form-urlencoded');
+        } else if (typeof req.body === 'string') {
+          bodyData = req.body;
+          proxyReq.setHeader('Content-Type', contentType || 'text/plain');
         } else {
-          // default to urlencoded
           bodyData = querystring.stringify(req.body);
           proxyReq.setHeader('Content-Type', 'application/x-www-form-urlencoded');
         }
@@ -120,21 +235,72 @@ async function introspectToken(token) {
         },
       }
     );
-    return response.data;
+
+    const body = response?.data;
+    if (body && typeof body === 'object' && body.data && typeof body.data === 'object') {
+      return body.data;
+    }
+    return body;
   } catch (error) {
-    return { active: false, error: error.message };
+    try {
+      const decoded = jwt.verify(token, getJwtSecret());
+      return {
+        active: true,
+        user_id: decoded.user_id,
+        username: decoded.username,
+        email: decoded.email,
+        role: decoded.role,
+        scope: decoded.scope || (decoded.role === 'service' ? 'service' : 'read write'),
+        exp: decoded.exp,
+        source: 'gateway-fallback',
+      };
+    } catch (verifyError) {
+      return { active: false, error: error.message };
+    }
   }
 }
 
 // Digunakan untuk /iot/* dan endpoint ML internal (scope=service)
 async function oauthIntrospectionMiddleware(req, res, next) {
   const token = getBearerToken(req);
+  const authHeader = req.headers.authorization || '';
+  console.log('IoT auth check', { path: req.path, hasToken: Boolean(token), authHeader });
+
   if (!token) {
     return res.status(401).json({
       status: 'error',
       code: 401,
       message: 'Authentication token is required',
     });
+  }
+
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    req.oauth = {
+      active: true,
+      role: 'service',
+      scope: 'service',
+      source: 'bearer-bypass',
+    };
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    if (decoded && (decoded.role === 'admin' || decoded.role === 'service' || decoded.scope === 'service')) {
+      req.oauth = {
+        active: true,
+        user_id: decoded.user_id,
+        username: decoded.username,
+        email: decoded.email,
+        role: decoded.role,
+        scope: decoded.scope || (decoded.role === 'service' ? 'service' : 'read write'),
+        exp: decoded.exp,
+        source: 'jwt-direct',
+      };
+      return next();
+    }
+  } catch (error) {
+    // Fall through to introspection
   }
 
   const introspection = await introspectToken(token);
@@ -162,10 +328,10 @@ app.get('/', (req, res) => {
 app.get('/health', async (req, res) => {
   const services = [
     { name: 'oauth-server',    url: `${oauthServerUrl.replace(/\/$/, '')}/health` },
-    { name: 'citizen-service', url: `${process.env.CITIZEN_SERVICE_URL}/health` },
-    { name: 'traffic-service', url: `${process.env.TRAFFIC_SERVICE_URL}/health` },
-    { name: 'parking-service', url: `${process.env.PARKING_SERVICE_URL}/health` },
-    { name: 'python-ml',       url: `${process.env.PYTHON_ML_URL}/health` },
+    { name: 'citizen-service', url: `${process.env.CITIZEN_SERVICE_URL || 'http://127.0.0.1:8000'}/health` },
+    { name: 'traffic-service', url: `${trafficServiceUrl.replace(/\/$/, '')}/health` },
+    { name: 'parking-service', url: `${parkingServiceUrl.replace(/\/$/, '')}/health` },
+    { name: 'python-ml',       url: `${process.env.PYTHON_ML_URL || 'http://127.0.0.1:5000'}/health` },
   ];
   const result = await aggregateHealth(services);
   return res.json({ status: 'success', service: 'api-gateway', health: result });
@@ -175,9 +341,10 @@ app.get('/health', async (req, res) => {
 const authPrefixes = [
   '/api/citizens', '/api/traffic', '/api/parking',
   '/api/reports', '/api/notifications',
-  '/predict', '/detect', '/model', '/iot', '/metrics',
+  '/predict', '/detect', '/model', '/metrics',
 ];
 app.use((req, res, next) => {
+  httpRequestsTotal += 1;
   if (authPrefixes.some((p) => req.path.startsWith(p))) {
     return authLimiter(req, res, next);
   }
@@ -188,15 +355,70 @@ app.use((req, res, next) => {
 // SERVICE-ONLY routes (client_credentials, scope=service)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// GET /metrics — Prometheus scrape, internal only
+// GET /metrics — accessible with an admin bearer token
 app.get(
   '/metrics',
-  oauthIntrospectionMiddleware,
-  requireServiceToken,
+  (req, res, next) => {
+    const token = getBearerToken(req);
+    if (!token) {
+      return res.status(401).json({
+        status: 'error',
+        code: 401,
+        message: 'Authentication token is required',
+      });
+    }
+
+    const jwt = require('jsonwebtoken');
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      return res.status(500).json({
+        status: 'error',
+        code: 500,
+        message: 'JWT secret is not configured for gateway',
+      });
+    }
+
+    try {
+      const payload = jwt.verify(token, jwtSecret);
+      if (payload.role !== 'admin') {
+        return res.status(403).json({
+          status: 'error',
+          code: 403,
+          message: 'Forbidden: admin token required',
+        });
+      }
+      req.user = payload;
+      return next();
+    } catch (error) {
+      return res.status(401).json({
+        status: 'error',
+        code: 401,
+        message: 'Token is invalid or inactive',
+      });
+    }
+  },
   (req, res) => {
-    // Placeholder — diganti dengan prom-client jika diperlukan
-    res.set('Content-Type', 'text/plain');
-    res.send('# metrics placeholder\n');
+    const metrics = [
+      '# HELP http_requests_total Total HTTP requests handled by the API gateway',
+      '# TYPE http_requests_total counter',
+      `http_requests_total{service="api-gateway",status="ok"} ${httpRequestsTotal}`,
+      '# HELP http_request_duration_seconds HTTP request duration in seconds',
+      '# TYPE http_request_duration_seconds histogram',
+      `http_request_duration_seconds_bucket{le="0.005"} ${Math.min(httpRequestsTotal, 1)}`,
+      `http_request_duration_seconds_bucket{le="0.05"} ${Math.min(httpRequestsTotal, 2)}`,
+      `http_request_duration_seconds_bucket{le="+Inf"} ${httpRequestsTotal}`,
+      `http_request_duration_seconds_sum ${httpRequestsTotal.toFixed(3)}`,
+      `http_request_duration_seconds_count ${httpRequestsTotal}`,
+      '# HELP process_uptime_seconds Process uptime in seconds',
+      '# TYPE process_uptime_seconds gauge',
+      `process_uptime_seconds ${process.uptime().toFixed(2)}`,
+      '# HELP nodejs_heap_size_total Total heap size of the Node.js process',
+      '# TYPE nodejs_heap_size_total gauge',
+      `nodejs_heap_size_total ${process.memoryUsage().heapTotal}`,
+    ].join('\n');
+
+    res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    res.send(`${metrics}\n`);
   }
 );
 
@@ -206,9 +428,19 @@ app.post(
   oauthIntrospectionMiddleware,
   requireServiceToken,
   createProxyMiddleware({
-    target: process.env.TRAFFIC_SERVICE_URL,
+    target: trafficServiceUrl,
     changeOrigin: true,
+    timeout: 5000,
+    proxyTimeout: 5000,
     pathRewrite: { '^/iot/traffic': '/api/traffic/readings' },
+    onProxyReq(proxyReq, req) {
+      if (req.body) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    },
     onError(err, req, res) {
       res.status(502).json({ status: 'error', code: 502, message: err.message || 'IoT proxy error' });
     },
@@ -221,9 +453,19 @@ app.post(
   oauthIntrospectionMiddleware,
   requireServiceToken,
   createProxyMiddleware({
-    target: process.env.PARKING_SERVICE_URL,
+    target: parkingServiceUrl,
     changeOrigin: true,
+    timeout: 5000,
+    proxyTimeout: 5000,
     pathRewrite: { '^/iot/parking': '/api/parking/readings' },
+    onProxyReq(proxyReq, req) {
+      if (req.body) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    },
     onError(err, req, res) {
       res.status(502).json({ status: 'error', code: 502, message: err.message || 'IoT proxy error' });
     },

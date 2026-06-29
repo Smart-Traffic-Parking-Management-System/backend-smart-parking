@@ -1,10 +1,9 @@
 [
     {
-        "id": "tab-traffic",
+        "id": "97165d3ca7348b2c",
         "type": "tab",
-        "label": "Traffic & Parking Flow",
-        "disabled": false,
-        "info": ""
+        "label": "Smart City IoT Flow",
+        "disabled": false
     },
     {
         "id": "mqtt-broker-config",
@@ -34,141 +33,385 @@
         "sessionExpiry": ""
     },
     {
-        "id": "mqtt-traffic-in",
+        "id": "1f99bb14d86fbe91",
+        "type": "mqtt-broker",
+        "name": "Mosquitto Broker",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "nodered-client",
+        "usetls": false
+    },
+    {
+        "id": "52bb763ba35ff680",
+        "type": "mqtt-broker",
+        "name": "Mosquitto",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "nodered-smartcity",
+        "usetls": false,
+        "keepalive": "60",
+        "cleansession": true
+    },
+    {
+        "id": "beb8f8a6764c60be",
+        "type": "inject",
+        "z": "97165d3ca7348b2c",
+        "name": "AUTO: Ambil Token Tiap 50 Menit",
+        "repeat": "3000",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 200,
+        "y": 60,
+        "wires": [
+            [
+                "1e1af103a214a732"
+            ]
+        ]
+    },
+    {
+        "id": "1e1af103a214a732",
+        "type": "function",
+        "z": "97165d3ca7348b2c",
+        "name": "Build Token Request",
+        "func": "msg.method = 'POST';\nmsg.url = 'http://oauth-server:3002/oauth/token';\nmsg.headers = {\n    'Content-Type': 'application/x-www-form-urlencoded'\n};\nmsg.payload = 'grant_type=client_credentials&client_id=smartcity_client&client_secret=SmartCity%40OAuth%232024';\nreturn msg;",
+        "outputs": 1,
+        "x": 460,
+        "y": 60,
+        "wires": [
+            [
+                "6fd8627b657ab98e"
+            ]
+        ]
+    },
+    {
+        "id": "6fd8627b657ab98e",
+        "type": "http request",
+        "z": "97165d3ca7348b2c",
+        "name": "POST ke OAuth Server",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "x": 680,
+        "y": 60,
+        "wires": [
+            [
+                "dcf1d50cf8e3e80c"
+            ]
+        ]
+    },
+    {
+        "id": "dcf1d50cf8e3e80c",
+        "type": "function",
+        "z": "97165d3ca7348b2c",
+        "name": "Simpan Token",
+        "func": "var body = msg.payload;\nif (body && body.access_token) {\n    flow.set('accessToken', body.access_token);\n    node.status({fill:'green', shape:'dot', text:'Token OK - ' + new Date().toLocaleTimeString()});\n    node.log('Token berhasil disimpan');\n} else {\n    node.status({fill:'red', shape:'ring', text:'Token GAGAL: ' + JSON.stringify(body)});\n    node.warn('Gagal dapat token: ' + JSON.stringify(body));\n}\nreturn null;",
+        "outputs": 1,
+        "x": 880,
+        "y": 60,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ca7622788fbd5203",
         "type": "mqtt in",
-        "z": "tab-traffic",
+        "z": "97165d3ca7348b2c",
         "name": "MQTT Traffic In",
         "topic": "city/+/traffic",
         "qos": "1",
-        "datatype": "auto-detect",
-        "broker": "mqtt-broker-config",
-        "nl": false,
-        "rap": false,
+        "datatype": "auto",
+        "broker": "52bb763ba35ff680",
         "inputs": 0,
-        "x": 150,
-        "y": 100,
+        "x": 160,
+        "y": 200,
         "wires": [
             [
-                "fn-parse-traffic"
+                "ff1fc2012bd0f5dd"
             ]
         ]
     },
     {
-        "id": "fn-parse-traffic",
+        "id": "ff1fc2012bd0f5dd",
         "type": "function",
-        "z": "tab-traffic",
-        "name": "Parse & Validate Traffic",
-        "func": "const payload = msg.payload;\nconst topicParts = msg.topic.split('/');\nconst zone = topicParts[1];\n\nconst zoneMap = { zone1: 1, zone2: 2, zone3: 3, zone4: 4, zone5: 5 };\n\nmsg.payload = {\n    zone_id: zoneMap[zone] || 1,\n    vehicle_density: payload.vehicle_density,\n    avg_speed_kmh: payload.avg_speed_kmh,\n    source: 'iot'\n};\n\nreturn msg;",
+        "z": "97165d3ca7348b2c",
+        "name": "Parse Traffic",
+        "func": "var payload = msg.payload;\nif (typeof payload === 'string') {\n    try {\n        payload = JSON.parse(payload);\n    } catch(e) {\n        node.warn('Gagal parse JSON: ' + e.message);\n        return null;\n    }\n}\nvar zoneMap = {zone1:1, zone2:2, zone3:3, zone4:4, zone5:5};\nvar parts = (msg.topic || '').split('/');\nvar zoneName = parts[1] || 'zone1';\nvar zoneId = zoneMap[zoneName] || 1;\nmsg.payload = {\n    zone_id: zoneId,\n    vehicle_density: parseFloat(payload.vehicle_density) || 0,\n    avg_speed_kmh: parseFloat(payload.avg_speed_kmh) || 0,\n    incident_flag: 0,\n    source: 'iot'\n};\nnode.status({fill:'blue', shape:'dot', text: zoneName + ' d=' + msg.payload.vehicle_density});\nreturn msg;",
         "outputs": 1,
-        "x": 400,
-        "y": 100,
+        "x": 360,
+        "y": 200,
         "wires": [
             [
-                "http-post-traffic"
+                "6ff463b64b97d86f",
+                "8f9a9d450caf61c8"
             ]
         ]
     },
     {
-        "id": "http-post-traffic",
-        "type": "http request",
-        "z": "tab-traffic",
-        "name": "POST to Gateway /iot/traffic",
-        "method": "POST",
-        "url": "http://api-gateway:3000/iot/traffic",
-        "headers": [
-            {
-                "keyType": "Content-Type",
-                "valueType": "application/json"
-            }
-        ],
-        "x": 650,
-        "y": 100,
-        "wires": [
-            [
-                "catch-http-error"
-            ]
-        ]
+        "id": "6ff463b64b97d86f",
+        "type": "debug",
+        "z": "97165d3ca7348b2c",
+        "name": "Debug Parsed Traffic",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 360,
+        "y": 140,
+        "wires": []
     },
     {
-        "id": "catch-http-error",
-        "type": "catch",
-        "z": "tab-traffic",
-        "name": "Catch Gateway Down",
-        "scope": null,
-        "x": 650,
-        "y": 180,
-        "wires": [
-            [
-                "delay-retry"
-            ]
-        ]
-    },
-    {
-        "id": "delay-retry",
+        "id": "8f9a9d450caf61c8",
         "type": "delay",
-        "z": "tab-traffic",
-        "name": "Retry After 60s",
-        "pauseType": "delay",
-        "timeout": "60",
+        "z": "97165d3ca7348b2c",
+        "name": "Limit 1/5s",
+        "pauseType": "rate",
+        "timeout": "5",
         "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "5",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": true,
         "outputs": 1,
-        "x": 650,
-        "y": 260,
+        "x": 560,
+        "y": 200,
         "wires": [
             [
-                "http-post-traffic"
+                "a5a057da26e149bc"
             ]
         ]
     },
     {
-        "id": "mqtt-parking-in",
+        "id": "a5a057da26e149bc",
+        "type": "function",
+        "z": "97165d3ca7348b2c",
+        "name": "Tambah Auth Header",
+        "func": "msg.headers = {\n    'Content-Type': 'application/json'\n};\nnode.status({fill:'green', shape:'dot', text:'Sent'});\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 200,
+        "wires": [
+            [
+                "d7944385b7203df2"
+            ]
+        ]
+    },
+    {
+        "id": "d7944385b7203df2",
+        "type": "http request",
+        "z": "97165d3ca7348b2c",
+        "name": "POST /iot/traffic → Gateway",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://traffic-service:8001/api/traffic/readings",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 980,
+        "y": 200,
+        "wires": [
+            [
+                "ef2f279e48e85504"
+            ]
+        ]
+    },
+    {
+        "id": "ef2f279e48e85504",
+        "type": "debug",
+        "z": "97165d3ca7348b2c",
+        "name": "Debug Response Traffic",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusType": "auto",
+        "x": 980,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "95d67cc289f3c289",
         "type": "mqtt in",
-        "z": "tab-traffic",
+        "z": "97165d3ca7348b2c",
         "name": "MQTT Parking In",
         "topic": "city/+/parking",
         "qos": "1",
-        "broker": "mqtt-broker-config",
+        "datatype": "auto",
+        "broker": "52bb763ba35ff680",
         "inputs": 0,
-        "x": 150,
-        "y": 320,
+        "x": 160,
+        "y": 360,
         "wires": [
             [
-                "fn-parse-parking"
+                "8174eb36a0fb971b"
             ]
         ]
     },
     {
-        "id": "fn-parse-parking",
+        "id": "8174eb36a0fb971b",
         "type": "function",
-        "z": "tab-traffic",
-        "name": "Parse & Validate Parking",
-        "func": "const payload = msg.payload;\nconst topicParts = msg.topic.split('/');\nconst zone = topicParts[1];\n\nmsg.payload = {\n    zone: zone,\n    occupied_slots: payload.occupied_slots,\n    timestamp: payload.timestamp\n};\n\nreturn msg;",
+        "z": "97165d3ca7348b2c",
+        "name": "Parse Parking",
+        "func": "var payload = msg.payload;\nif (typeof payload === 'string') {\n    try {\n        payload = JSON.parse(payload);\n    } catch(e) {\n        node.warn('Gagal parse JSON: ' + e.message);\n        return null;\n    }\n}\nvar zoneMap = {zone1:1, zone2:2, zone3:3, zone4:4, zone5:5};\nvar parts = (msg.topic || '').split('/');\nvar zoneName = parts[1] || 'zone1';\nvar zoneId = zoneMap[zoneName] || 1;\nmsg.payload = {\n    zone: zoneName,\n    zone_id: zoneId,\n    occupied_slots: parseInt(payload.occupied_slots) || 0,\n    timestamp: payload.timestamp || new Date().toISOString()\n};\nnode.status({fill:'blue', shape:'dot', text: zoneName + ' slots=' + msg.payload.occupied_slots});\nreturn msg;",
         "outputs": 1,
-        "x": 400,
-        "y": 320,
+        "x": 360,
+        "y": 360,
         "wires": [
             [
-                "http-post-parking"
+                "0f78a38558493294",
+                "af53d51025c84343"
             ]
         ]
     },
     {
-        "id": "http-post-parking",
+        "id": "0f78a38558493294",
+        "type": "debug",
+        "z": "97165d3ca7348b2c",
+        "name": "Debug Parsed Parking",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 360,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "af53d51025c84343",
+        "type": "delay",
+        "z": "97165d3ca7348b2c",
+        "name": "Limit 1/5s",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "5",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": true,
+        "outputs": 1,
+        "x": 560,
+        "y": 360,
+        "wires": [
+            [
+                "5fad0f5c06bb13da"
+            ]
+        ]
+    },
+    {
+        "id": "5fad0f5c06bb13da",
+        "type": "function",
+        "z": "97165d3ca7348b2c",
+        "name": "Tambah Auth Header",
+        "func": "msg.headers = {\n    'Content-Type': 'application/json'\n};\nnode.status({fill:'green', shape:'dot', text:'Sent'});\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 360,
+        "wires": [
+            [
+                "5f95336aa2474ffb"
+            ]
+        ]
+    },
+    {
+        "id": "5f95336aa2474ffb",
         "type": "http request",
-        "z": "tab-traffic",
-        "name": "POST to Gateway /iot/parking",
+        "z": "97165d3ca7348b2c",
+        "name": "POST /iot/parking → Gateway",
         "method": "POST",
-        "url": "http://api-gateway:3000/iot/parking",
-        "headers": [
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://parking-service:8002/api/parking/readings",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 980,
+        "y": 360,
+        "wires": [
+            [
+                "93217727072c3f5c"
+            ]
+        ]
+    },
+    {
+        "id": "93217727072c3f5c",
+        "type": "debug",
+        "z": "97165d3ca7348b2c",
+        "name": "Debug Response Parking",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusType": "auto",
+        "x": 980,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "7e5052a226fcf6a4",
+        "type": "inject",
+        "z": "97165d3ca7348b2c",
+        "name": "",
+        "props": [
             {
-                "keyType": "Content-Type",
-                "valueType": "application/json"
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
             }
         ],
-        "x": 650,
-        "y": 320,
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"zone_id\": 1, \"vehicle_density\": 55.5, \"avg_speed_kmh\": 30.0, \"incident_flag\": 0, \"source\": \"iot\"}",
+        "payloadType": "json",
+        "x": 590,
+        "y": 280,
         "wires": [
-            []
+            [
+                "a5a057da26e149bc"
+            ]
         ]
     }
 ]

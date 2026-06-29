@@ -1,0 +1,365 @@
+# CITIZEN SERVICE
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: citizen-service
+  namespace: smartcity
+  labels:
+    app: citizen-service
+    tier: service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: citizen-service
+      tier: service
+  template:
+    metadata:
+      labels:
+        app: citizen-service
+        tier: service
+    spec:
+      containers:
+      - name: citizen-service
+        image: citizen-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: DB_PASSWORD
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_HOST
+        - name: RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_PORT
+        - name: RABBITMQ_USER
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_USER
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: RABBITMQ_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: JWT_SECRET
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /api/citizens/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/citizens/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: citizen-service
+  namespace: smartcity
+  labels:
+    app: citizen-service
+spec:
+  type: ClusterIP
+  selector:
+    app: citizen-service
+    tier: service
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+---
+# TRAFFIC SERVICE
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-service
+  namespace: smartcity
+  labels:
+    app: traffic-service
+    tier: service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: traffic-service
+      tier: service
+  template:
+    metadata:
+      labels:
+        app: traffic-service
+        tier: service
+    spec:
+      containers:
+      - name: traffic-service
+        image: traffic-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: DB_PASSWORD
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_HOST
+        - name: RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_PORT
+        - name: RABBITMQ_USER
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_USER
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: RABBITMQ_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: JWT_SECRET
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /api/traffic/health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/traffic/health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traffic-service
+  namespace: smartcity
+  labels:
+    app: traffic-service
+spec:
+  type: ClusterIP
+  selector:
+    app: traffic-service
+    tier: service
+  ports:
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: http
+---
+# PARKING SERVICE
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parking-service
+  namespace: smartcity
+  labels:
+    app: parking-service
+    tier: service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: parking-service
+      tier: service
+  template:
+    metadata:
+      labels:
+        app: parking-service
+        tier: service
+    spec:
+      containers:
+      - name: parking-service
+        image: parking-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: DB_PASSWORD
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_HOST
+        - name: RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_PORT
+        - name: RABBITMQ_USER
+          valueFrom:
+            configMapKeyRef:
+              name: smartcity-config
+              key: RABBITMQ_USER
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: RABBITMQ_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: smartcity-secrets
+              key: JWT_SECRET
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /api/parking/health
+            port: 8002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/parking/health
+            port: 8002
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: parking-service
+  namespace: smartcity
+  labels:
+    app: parking-service
+spec:
+  type: ClusterIP
+  selector:
+    app: parking-service
+    tier: service
+  ports:
+  - port: 8002
+    targetPort: 8002
+    protocol: TCP
+    name: http

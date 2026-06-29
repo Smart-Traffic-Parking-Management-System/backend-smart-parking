@@ -1,0 +1,27 @@
+{
+    "citizens": [
+        {
+            "id": 1,
+            "nik": "1234567890123456",
+            "name": "Ryan Afandi",
+            "email": "yann@gmail.com",
+            "password": "$2y$10$mkB8ILFtVeAAwwpA6A7kWuM\/JhK6h5KjyEi1dUCoIxr6YaDIMYDBW",
+            "phone": "085691287450",
+            "zone_id": 2,
+            "role": "citizen",
+            "created_at": "2026-06-12T11:18:16+02:00"
+        },
+        {
+            "id": 2,
+            "nik": "1234567890123456",
+            "name": "Nadia Jas",
+            "email": "Namin@gmail.com",
+            "password": "$2y$10$MRBrNPGBS4ya8LglPLBfXOOlju\/xPoyy2JksLHl9xCsJ9.lRsj\/vm",
+            "phone": "083456795784",
+            "zone_id": 1,
+            "role": "citizen",
+            "created_at": "2026-06-12T11:19:12+02:00"
+        }
+    ],
+    "next_id": 3
+}

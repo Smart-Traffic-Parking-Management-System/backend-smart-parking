@@ -17,7 +17,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"username\": \"budi_santoso\",\r\n    \"email\": \"budi@example.com\",\r\n    \"password\": \"securepass123\"\r\n}",
+              "raw": "{\r\n    \"nik\": \"1234567890123456\",\r\n    \"name\": \"Nadia Jasmine Aulia\",\r\n    \"username\": \"nafisanaf\",\r\n    \"email\": \"nafisanafisa@example.com\",\r\n    \"password\": \"nafnaf123\",\r\n    \"phone\": \"08123456789\",\r\n    \"zone_id\": 1\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -75,7 +75,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"username\": \"budi_santoso\",\r\n    \"password\": \"securepass123\"\r\n}",
+              "raw": "{\r\n    \"username\": \"nafisanaf\",\r\n    \"password\": \"nafnaf123\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -104,7 +104,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"refresh_token\": \"{{supabase_service_role_api_key_1ejb}}\"\r\n}",
+              "raw": "{\r\n    \"refresh_token\": \"{{json_web_token_0pll}}\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -133,7 +133,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"token\":\"{{json_web_token_0jdd}}\"\r\n}",
+              "raw": "{\r\n    \"token\":\"{{json_web_token_1bg5}}\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -162,7 +162,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"token\":\"{{supabase_service_role_api_key_0iuv}}\"\r\n}",
+              "raw": "{\r\n    \"token\":\"{{supabase_service_role_api_key_0muh}}\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -238,35 +238,6 @@
           "response": []
         },
         {
-          "name": "Metrics",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{auth_secret_0oef}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:3000/metrics",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "3000",
-              "path": [
-                "metrics"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "Traffic",
           "request": {
             "auth": {
@@ -274,7 +245,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{json_web_token_156g}}",
+                  "value": "{{json_web_token_0i7a}}",
                   "type": "string"
                 }
               ]
@@ -313,7 +284,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{auth_secret_0rcb}}",
+                  "value": "{{supabase_service_role_api_key_0i7a}}",
                   "type": "string"
                 }
               ]
@@ -339,6 +310,771 @@
               "path": [
                 "iot",
                 "parking"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Citizens",
+      "item": [
+        {
+          "name": "Profil Citizen",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_secret_0gm0}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/citizens/2",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "citizens",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{json_web_token_0p8o}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"full_name\": \"Nadia Jasmine\",\r\n  \"phone\": \"081234567890\",\r\n  \"zone_id\": 3,\r\n  \"email\": \"budi.updated@example.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/citizens/2",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "citizens",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat Laporan",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_secret_0l61}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"category\": \"kecelakaan\",\r\n  \"zone_id\": 4,\r\n  \"description\": \"Kecelakaan ringan di simpang lampu lalu lintas\",\r\n  \"severity\": \"medium\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/reports",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "reports"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lihat Daftar Laporan",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{json_web_token_0p8o}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/reports",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "reports"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Status Laporan (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{supabase_service_role_api_key_0n27}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"status\": \"in_progress\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/reports/4/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "reports",
+                "4",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Parking",
+      "item": [
+        {
+          "name": "Daftar Zona Parkir",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJ1c2VybmFtZSI6Im5hZmlzYW5hZiIsImVtYWlsIjoibmFmaXNhbmFmaXNhQGV4YW1wbGUuY29tIiwicm9sZSI6ImNpdGl6ZW4iLCJzY29wZSI6InJlYWQgd3JpdGUiLCJpYXQiOjE3ODI3MTM4MDgsImV4cCI6MTc4MjcxNzQwOH0.3VO3vUNg3Kz_fyo2wsMI82EZ_FT7czGp53fAy784gxQ",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/parking/zones",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "parking",
+                "zones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Slot Tersedia",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJ1c2VybmFtZSI6Im5hZmlzYW5hZiIsImVtYWlsIjoibmFmaXNhbmFmaXNhQGV4YW1wbGUuY29tIiwicm9sZSI6ImNpdGl6ZW4iLCJzY29wZSI6InJlYWQgd3JpdGUiLCJpYXQiOjE3ODI3MTM4MDgsImV4cCI6MTc4MjcxNzQwOH0.3VO3vUNg3Kz_fyo2wsMI82EZ_FT7czGp53fAy784gxQ",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/parking/slots",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "parking",
+                "slots"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reservasi Slot",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJ1c2VybmFtZSI6Im5hZmlzYW5hZiIsImVtYWlsIjoibmFmaXNhbmFmaXNhQGV4YW1wbGUuY29tIiwicm9sZSI6ImNpdGl6ZW4iLCJzY29wZSI6InJlYWQgd3JpdGUiLCJpYXQiOjE3ODI3MTM4MDgsImV4cCI6MTc4MjcxNzQwOH0.3VO3vUNg3Kz_fyo2wsMI82EZ_FT7czGp53fAy784gxQ",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"slot_id\": 1,\r\n  \"citizen_id\": 7,\r\n  \"vehicle_plate\": \"B 1234 CD\",\r\n  \"start_time\": \"2026-06-29T10:00:00Z\",\r\n  \"estimated_duration_hours\": 2\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/parking/reserve",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "parking",
+                "reserve"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check-In",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJ1c2VybmFtZSI6Im5hZmlzYW5hZiIsImVtYWlsIjoibmFmaXNhbmFmaXNhQGV4YW1wbGUuY29tIiwicm9sZSI6ImNpdGl6ZW4iLCJzY29wZSI6InJlYWQgd3JpdGUiLCJpYXQiOjE3ODI3MTM4MDgsImV4cCI6MTc4MjcxNzQwOH0.3VO3vUNg3Kz_fyo2wsMI82EZ_FT7czGp53fAy784gxQ",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"vehicle_plate\": \"B 1234 CD\",\r\n  \"entry_method\": \"manual\",\r\n  \"checkin_time\": \"2026-06-29T10:05:00Z\"\r\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/parking/checkin/2",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "parking",
+                "checkin",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check-Out",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJ1c2VybmFtZSI6Im5hZmlzYW5hZiIsImVtYWlsIjoibmFmaXNhbmFmaXNhQGV4YW1wbGUuY29tIiwicm9sZSI6ImNpdGl6ZW4iLCJzY29wZSI6InJlYWQgd3JpdGUiLCJpYXQiOjE3ODI3MTM4MDgsImV4cCI6MTc4MjcxNzQwOH0.3VO3vUNg3Kz_fyo2wsMI82EZ_FT7czGp53fAy784gxQ",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"checkout_time\": \"2026-06-29T12:10:00Z\",\r\n  \"payment_method\": \"mobile_wallet\",\r\n  \"notes\": \"Checkout melalui aplikasi\"\r\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/parking/checkout/2",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "parking",
+                "checkout",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "History",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJ1c2VybmFtZSI6Im5hZmlzYW5hZiIsImVtYWlsIjoibmFmaXNhbmFmaXNhQGV4YW1wbGUuY29tIiwicm9sZSI6ImNpdGl6ZW4iLCJzY29wZSI6InJlYWQgd3JpdGUiLCJpYXQiOjE3ODI3MTM4MDgsImV4cCI6MTc4MjcxNzQwOH0.3VO3vUNg3Kz_fyo2wsMI82EZ_FT7czGp53fAy784gxQ",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/parking/history?citizen_id=7",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "parking",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "citizen_id",
+                  "value": "7"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ML service",
+      "item": [
+        {
+          "name": "Prediksi Traffic",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_secret_13cn}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"hour\": 8,\r\n  \"day_of_week\": 0,\r\n  \"weather_code\": 1,\r\n  \"prev_density\": 65.5,\r\n  \"location\": \"zone1\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/predict/traffic",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "predict",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Prediksi Parkir",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{supabase_service_role_api_key_0xva}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"hour\": 17,\r\n  \"day_of_week\": 4,\r\n  \"zone_id\": \"zone2\",\r\n  \"historical_avg_occupancy\": 0.85\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/predict/parking",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "predict",
+                "parking"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Detect Anomaly",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{json_web_token_13cn}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"sensor_value\": 95.5,\r\n  \"timestamp_hour\": 8,\r\n  \"rolling_mean_1h\": 80.5,\r\n  \"z_score\": 5.2\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/detect/anomaly",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "detect",
+                "anomaly"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bobot Fitur Ketiga Model",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_secret_0xva}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/model/feature-importance",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "model",
+                "feature-importance"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Batch Predict",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{json_web_token_13cn}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"inputs\": [\r\n    {\r\n        \"hour\": 8,\r\n        \"day_of_week\": 0,\r\n        \"weather_code\": 1,\r\n        \"prev_density\": 65.5,\r\n        \"location\": \"zone1\"\r\n    },\r\n    {\r\n        \"hour\": 22,\r\n        \"day_of_week\": 6,\r\n        \"weather_code\": 0,\r\n        \"prev_density\": 15.0,\r\n        \"location\": \"zone2\"\r\n    }\r\n    ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/predict/batch",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "predict",
+                "batch"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Traffic",
+      "item": [
+        {
+          "name": "Current",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{supabase_service_role_api_key_0f7k}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/traffic/current",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "traffic",
+                "current"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "History",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{supabase_service_role_api_key_0f7k}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/traffic/history",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "traffic",
+                "history"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Daftar Segmen Jalan",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_secret_0215}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/roads",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "roads"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Laporan Incidents",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_secret_0215}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"zone_id\": 5,\r\n    \"type\": \"kemacetan_parah\",\r\n    \"description\": \"Bus berhenti di lajur cepat, mengganggu arus lalu lintas\",\r\n    \"severity\": \"tinggi\",\r\n    \"reported_by\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/incidents",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "incidents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve Incidents",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{supabase_service_role_api_key_0haz}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"status\": \"resolved\",\r\n  \"resolved_by\": \"admin\",\r\n  \"notes\": \"Kendaraan telah dipindahkan dan lalu lintas normal kembali\"\r\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/incidents/1/resolve",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "incidents",
+                "1",
+                "resolve"
               ]
             }
           },
@@ -382,6 +1118,82 @@
     },
     {
       "key": "supabase_service_role_api_key_0aex",
+      "secret": true
+    },
+    {
+      "key": "auth_secret_0gm0",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_0p8o",
+      "secret": true
+    },
+    {
+      "key": "supabase_service_role_api_key_0n27",
+      "secret": true
+    },
+    {
+      "key": "supabase_service_role_api_key_0f7k",
+      "secret": true
+    },
+    {
+      "key": "auth_secret_0215",
+      "secret": true
+    },
+    {
+      "key": "supabase_service_role_api_key_0haz",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_0pll",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_1bg5",
+      "secret": true
+    },
+    {
+      "key": "supabase_service_role_api_key_0muh",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_0muh",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_0i7a",
+      "secret": true
+    },
+    {
+      "key": "supabase_service_role_api_key_0i7a",
+      "secret": true
+    },
+    {
+      "key": "auth_secret_0l61",
+      "secret": true
+    },
+    {
+      "key": "supabase_service_role_api_key_0l61",
+      "secret": true
+    },
+    {
+      "key": "auth_secret_13cn",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_13cn",
+      "secret": true
+    },
+    {
+      "key": "supabase_service_role_api_key_0xva",
+      "secret": true
+    },
+    {
+      "key": "auth_secret_0xva",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_0xva",
       "secret": true
     }
   ]

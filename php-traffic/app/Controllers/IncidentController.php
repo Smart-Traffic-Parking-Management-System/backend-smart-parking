@@ -23,6 +23,16 @@ class IncidentController
             return;
         }
 
+        try {
+            $model = new Incident($this->db);
+            $id = $model->create($input);
+            $record = $model->find($id);
+            $this->response('success', 201, $record, 'Insiden berhasil dilaporkan');
+        } catch (\PDOException $e) {
+            error_log("Incident create error: " . $e->getMessage());
+            $this->response('error', 500, [], 'Gagal menyimpan insiden: ' . $e->getMessage());
+        }
+
         $model = new Incident($this->db);
         $id = $model->create($input);
         $record = $model->find($id);

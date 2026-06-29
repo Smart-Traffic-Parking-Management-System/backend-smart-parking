@@ -29,20 +29,20 @@
 ┌──────────────────────────────────────────────────────────┐
 │  1. IoT LAYER                                            │
 │  Sensor Simulator (Python) → Mosquitto MQTT → Node-RED   │
-└──────────────────┬─────────────────────────────────────┘
+└──────────────────┬───────────────────────────────────────┘
                    │ HTTP POST
-┌──────────────────▼─────────────────────────────────────┐
-│  2. GATEWAY LAYER                                      │
+┌──────────────────▼───────────────────────────────────────┐
+│  2. GATEWAY LAYER                                        │
 │  API Gateway (Express.js :3000)  ←→  OAuth Server (:3002)│
-└──────┬──────────────┬──────────────┬──────────────────┘
+└──────┬──────────────┬──────────────┬─────────────────────┘
        │              │              │
-┌──────▼────┐  ┌──────▼──┐  ┌──────▼──────────────────┐
-│ CITIZEN    │  │ TRAFFIC  │  │ PARKING SERVICE        │
-│ SERVICE    │  │ SERVICE  │  │ (PHP :8002)            │
-│ (PHP :8000)│  │ (PHP :8001)  └────────────────────────┘
-└──────┬────┘  └──────┬──┘
-       │              │ publish
-┌──────▼──────────────▼──────────────────────────────────┐
+┌──────▼─────┐  ┌──────▼─────┐  ┌──────▼─────────────────┐
+│ CITIZEN    │  │ TRAFFIC    │  │ PARKING SERVICE        │
+│ SERVICE    │  │ SERVICE    │  │ (PHP :8002)            │
+│ (PHP :8000)│  │ (PHP :8001)│  └────────────────────────┘
+└──────┬─────┘  └──────┬─────┘
+       │               │ publish
+┌──────▼───────────────▼─────────────────────────────────┐
 │  3. MESSAGING LAYER                                    │
 │  RabbitMQ (:5672) — Queues: traffic.new, anomaly.alert │
 └──────────────────┬─────────────────────────────────────┘
@@ -50,19 +50,19 @@
 ┌──────────────────▼─────────────────────────────────────┐
 │  4. ML LAYER                                           │
 │  Python FastAPI (:5000)                                │
-│  - Traffic Density Predictor  (Regression)            │
-│  - Parking Occupancy Forecast (Regression)            │
-│  - Anomaly Detector           (Isolation Forest)      │
+│  - Traffic Density Predictor  (Regression)             │
+│  - Parking Occupancy Forecast (Regression)             │
+│  - Anomaly Detector           (Isolation Forest)       │
 └──────────────────┬─────────────────────────────────────┘
                    │
 ┌──────────────────▼─────────────────────────────────────┐
 │  5. DATA LAYER                                         │
-│  MySQL Database + Persistence Storage                 │
+│  MySQL Database + Persistence Storage                  │
 └────────────────────────────────────────────────────────┘
 ┌────────────────────────────────────────────────────────┐
 │  6. INFRA LAYER                                        │
-│  Docker Compose (dev) → Kubernetes (prod)             │
-│  Prometheus (:9090) + Grafana (:3001) Monitoring      │
+│  Docker Compose (dev) → Kubernetes (prod)              │
+│  Prometheus (:9090) + Grafana (:3001) Monitoring       │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -269,28 +269,29 @@ curl -X POST http://localhost:3000/oauth/login \
 
 > Catatan: `POST /api/citizens` mengembalikan objek `data.citizen` yang berisi `id`. Gunakan nilai `data.citizen.id` tersebut sebagai parameter `:id` untuk `PUT /api/citizens/:id`.
 
-**Example:**
+#### Contoh Request
 ```bash
-# Submit Report
-curl -X POST http://localhost:3000/api/reports \
-  -H "Authorization: Bearer <access_token>" \
+curl -X POST http://localhost:3000/api/citizens \
   -H "Content-Type: application/json" \
   -d '{
-    "category": "kemacetan",
-    "zone_id": 1,
-    "description": "Kemacetan parah di Jl. Sudirman"
+    "nik": "3201011234567890",
+    "name": "Budi Santoso",
+    "email": "budi@example.com",
+    "password": "SecurePass123!",
+    "phone": "081234567890",
+    "zone_id": 2
   }'
 ```
 
-**Body Request Dummy:**
+#### Body Request Dummy
 
 **POST /api/citizens**
 ```json
 {
-  "username": "budi_santoso",
+  "nik": "3201011234567890",
+  "name": "Budi Santoso",
   "email": "budi@example.com",
   "password": "SecurePass123!",
-  "full_name": "Budi Santoso",
   "phone": "081234567890",
   "zone_id": 2
 }
@@ -299,7 +300,7 @@ curl -X POST http://localhost:3000/api/reports \
 **PUT /api/citizens/:id**
 ```json
 {
-  "full_name": "Budi Santoso",
+  "name": "Budi Santoso",
   "phone": "081234567890",
   "zone_id": 3,
   "email": "budi.updated@example.com"

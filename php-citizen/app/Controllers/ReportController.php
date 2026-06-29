@@ -25,7 +25,11 @@ class ReportController {
         ];
         
         $reportId = $reportModel->create($reportData);
-        
+
+        if (!$reportId) {
+            return ['status' => 'error', 'code' => 500, 'message' => 'Gagal menyimpan laporan'];
+        }
+
         // Publish ke RabbitMQ
         $this->publishToRabbitMQ([
             'report_id' => $reportId,
@@ -61,8 +65,13 @@ class ReportController {
     }
     
     private function publishToRabbitMQ($message) {
-    require_once __DIR__ . '/../Services/RabbitMQPublisher.php';
-    $publisher = new \App\Services\RabbitMQPublisher();
-    $publisher->publish('report.submitted', $message);
-    }   
+    try {
+        require_once __DIR__ . '/../Services/RabbitMQPublisher.php';
+        $publisher = new \App\Services\RabbitMQPublisher();
+        $publisher->publish('report.submitted', $message);
+    } catch (\Exception $e) {
+        // Log saja, jangan crash — report sudah tersimpan di DB
+        error_log("RabbitMQ publish failed: " . $e->getMessage());
+    }
+}
 }

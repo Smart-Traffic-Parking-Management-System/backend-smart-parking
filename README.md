@@ -162,7 +162,7 @@ docker exec -i $(docker compose ps -q mysql) \
 
 # Seed data awal
 docker exec -i $(docker compose ps -q mysql) \
-  mysql -u root -p${DB_ROOT_PASSWORD} smartcity < database/seed.sql
+  mysql -u root -p${DB_ROOT_PASSWORD} smartcity < database/seed2.sql
 
 # Verifikasi
 docker exec -i $(docker compose ps -q mysql) \
@@ -208,6 +208,7 @@ Semua authentication endpoints diakses melalui **Gateway port 3000** untuk konsi
 | **POST** | `/oauth/refresh` | `{refresh_token}` | `{access_token, expires_in}` | 200 |
 | **POST** | `/oauth/revoke` | `{token}` | `{status: "success"}` | 200 |
 | **POST** | `/oauth/introspect` | `{token}` | `{active, user_id, role, exp}` | 200 |
+| **POST** | `/oauth/service-token` | `{service_name}` | `{access_token, token_type, expires_in}` | 200 |
 | **GET** | `/oauth/google` | - | Redirect to Google OAuth | 302 |
 | **GET** | `/oauth/google/callback` | - | Handle Google callback | 302 |
 | **GET** | `/oauth/debug/users` | - | List all users (dev only) | 200 |

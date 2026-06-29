@@ -96,6 +96,31 @@ if ($uri === '/health' && $method === 'GET') {
     sendResponse(['status'=>'success','code'=>200,'message'=>'Parking service OK','timestamp'=>date('c'),'service'=>'parking-service']);
 }
 
+// POST PARKING READINGS (IoT gateway forward)
+elseif ($uri === '/api/parking/readings' && $method === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true) ?? [];
+    $slotId = isset($input['slot_id']) ? (int)$input['slot_id'] : null;
+    $status = $input['status'] ?? 'occupied';
+    $timestamp = $input['timestamp'] ?? date('c');
+
+    if ($slotId) {
+        updateSlotStatus($slotId, $status);
+    }
+
+    sendResponse([
+        'status' => 'success',
+        'code' => 201,
+        'data' => [
+            'slot_id' => $slotId,
+            'status' => $status,
+            'timestamp' => $timestamp,
+        ],
+        'message' => 'Parking reading berhasil diterima',
+        'timestamp' => date('c'),
+        'service' => 'parking-service'
+    ], 201);
+}
+
 // GET PARKING ZONES
 elseif ($uri === '/api/parking/zones' && $method === 'GET') {
     sendResponse(['status'=>'success','code'=>200,'data'=>[

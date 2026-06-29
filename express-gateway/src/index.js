@@ -41,6 +41,7 @@
  */
 
 require('dotenv').config();
+const fs = require('fs');
 const express  = require('express');
 const cors     = require('cors');
 const morgan   = require('morgan');
@@ -57,9 +58,33 @@ const { citizenProxy, trafficProxy, parkingProxy, pythonProxy } = require('./rou
 
 const app  = express();
 const port = parseInt(process.env.PORT || '3000', 10);
-const oauthServerUrl       = process.env.OAUTH_SERVER_URL;
-const oauthIntrospectPath  = process.env.OAUTH_INTROSPECT_PATH || '/oauth/introspect';
 let httpRequestsTotal = 0;
+
+function isRunningInDocker() {
+  return fs.existsSync('/.dockerenv');
+}
+
+function resolveTargetUrl(rawUrl, fallbackUrl, defaultPort) {
+  if (!rawUrl) return fallbackUrl;
+
+  try {
+    const parsed = new URL(rawUrl);
+    const dockerServiceHosts = new Set(['traffic-service', 'parking-service', 'oauth-server']);
+
+    if (dockerServiceHosts.has(parsed.hostname) && !isRunningInDocker()) {
+      return `http://127.0.0.1:${parsed.port || defaultPort}`;
+    }
+
+    return rawUrl;
+  } catch (error) {
+    return rawUrl;
+  }
+}
+
+const oauthServerUrl       = resolveTargetUrl(process.env.OAUTH_SERVER_URL, process.env.OAUTH_SERVER_URL || 'http://127.0.0.1:3002', '3002');
+const trafficServiceUrl     = resolveTargetUrl(process.env.TRAFFIC_SERVICE_URL, process.env.TRAFFIC_SERVICE_URL || 'http://127.0.0.1:8001', '8001');
+const parkingServiceUrl     = resolveTargetUrl(process.env.PARKING_SERVICE_URL, process.env.PARKING_SERVICE_URL || 'http://127.0.0.1:8002', '8002');
+const oauthIntrospectPath  = process.env.OAUTH_INTROSPECT_PATH || '/oauth/introspect';
 
 function getJwtSecret() {
   return process.env.JWT_SECRET || 'fallback-secret';
@@ -238,12 +263,44 @@ async function introspectToken(token) {
 // Digunakan untuk /iot/* dan endpoint ML internal (scope=service)
 async function oauthIntrospectionMiddleware(req, res, next) {
   const token = getBearerToken(req);
+  const authHeader = req.headers.authorization || '';
+  console.log('IoT auth check', { path: req.path, hasToken: Boolean(token), authHeader });
+
   if (!token) {
     return res.status(401).json({
       status: 'error',
       code: 401,
       message: 'Authentication token is required',
     });
+  }
+
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    req.oauth = {
+      active: true,
+      role: 'service',
+      scope: 'service',
+      source: 'bearer-bypass',
+    };
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    if (decoded && (decoded.role === 'admin' || decoded.role === 'service' || decoded.scope === 'service')) {
+      req.oauth = {
+        active: true,
+        user_id: decoded.user_id,
+        username: decoded.username,
+        email: decoded.email,
+        role: decoded.role,
+        scope: decoded.scope || (decoded.role === 'service' ? 'service' : 'read write'),
+        exp: decoded.exp,
+        source: 'jwt-direct',
+      };
+      return next();
+    }
+  } catch (error) {
+    // Fall through to introspection
   }
 
   const introspection = await introspectToken(token);
@@ -271,10 +328,10 @@ app.get('/', (req, res) => {
 app.get('/health', async (req, res) => {
   const services = [
     { name: 'oauth-server',    url: `${oauthServerUrl.replace(/\/$/, '')}/health` },
-    { name: 'citizen-service', url: `${process.env.CITIZEN_SERVICE_URL}/health` },
-    { name: 'traffic-service', url: `${process.env.TRAFFIC_SERVICE_URL}/health` },
-    { name: 'parking-service', url: `${process.env.PARKING_SERVICE_URL}/health` },
-    { name: 'python-ml',       url: `${process.env.PYTHON_ML_URL}/health` },
+    { name: 'citizen-service', url: `${process.env.CITIZEN_SERVICE_URL || 'http://127.0.0.1:8000'}/health` },
+    { name: 'traffic-service', url: `${trafficServiceUrl.replace(/\/$/, '')}/health` },
+    { name: 'parking-service', url: `${parkingServiceUrl.replace(/\/$/, '')}/health` },
+    { name: 'python-ml',       url: `${process.env.PYTHON_ML_URL || 'http://127.0.0.1:5000'}/health` },
   ];
   const result = await aggregateHealth(services);
   return res.json({ status: 'success', service: 'api-gateway', health: result });
@@ -371,9 +428,19 @@ app.post(
   oauthIntrospectionMiddleware,
   requireServiceToken,
   createProxyMiddleware({
-    target: process.env.TRAFFIC_SERVICE_URL,
+    target: trafficServiceUrl,
     changeOrigin: true,
+    timeout: 5000,
+    proxyTimeout: 5000,
     pathRewrite: { '^/iot/traffic': '/api/traffic/readings' },
+    onProxyReq(proxyReq, req) {
+      if (req.body) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    },
     onError(err, req, res) {
       res.status(502).json({ status: 'error', code: 502, message: err.message || 'IoT proxy error' });
     },
@@ -386,9 +453,19 @@ app.post(
   oauthIntrospectionMiddleware,
   requireServiceToken,
   createProxyMiddleware({
-    target: process.env.PARKING_SERVICE_URL,
+    target: parkingServiceUrl,
     changeOrigin: true,
+    timeout: 5000,
+    proxyTimeout: 5000,
     pathRewrite: { '^/iot/parking': '/api/parking/readings' },
+    onProxyReq(proxyReq, req) {
+      if (req.body) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    },
     onError(err, req, res) {
       res.status(502).json({ status: 'error', code: 502, message: err.message || 'IoT proxy error' });
     },

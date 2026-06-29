@@ -8,8 +8,9 @@ const jwt = require('jsonwebtoken');
 
 function getBearerToken(req) {
   const authHeader = req.headers.authorization || '';
-  if (!authHeader.startsWith('Bearer ')) return null;
-  return authHeader.split(' ')[1];
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  return match[1];
 }
 
 function jwtMiddleware(req, res, next) {

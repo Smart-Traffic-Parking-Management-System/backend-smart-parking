@@ -42,8 +42,20 @@ class Citizen {
                 $params[] = $value;
             }
         }
+
+        if (empty($fields)) return false;
+
         $params[] = $id;
-        $stmt = $this->db->prepare("UPDATE citizens SET " . implode(', ', $fields) . " WHERE id = ?");
-        return $stmt->execute($params);
+
+        try {
+            $stmt = $this->db->prepare(
+                "UPDATE citizens SET " . implode(', ', $fields) . " WHERE id = ?"
+            );
+            return $stmt->execute($params);
+        } catch (\PDOException $e) {
+            // Log error, jangan silent fail
+            error_log("Citizen update error: " . $e->getMessage());
+            return false;
+        }
     }
 }

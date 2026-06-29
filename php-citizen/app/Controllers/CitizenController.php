@@ -53,4 +53,44 @@ class CitizenController {
             'service' => 'citizen-service'
         ];
     }
+
+    public function update($id) {
+        $raw  = json_decode(file_get_contents('php://input'), true);
+        $data = array_change_key_case($raw ?? [], CASE_LOWER); // konsisten lowercase
+
+        $allowed = ['name', 'email', 'phone', 'zone_id'];
+
+        $updateData = [];
+        foreach ($allowed as $field) {
+            if (isset($data[$field])) {
+                $updateData[$field] = $data[$field];
+            }
+        }
+
+        // Handle alias: full_name → name
+        if (isset($data['full_name']) && !isset($updateData['name'])) {
+            $updateData['name'] = $data['full_name'];
+        }
+
+        $db    = getDBConnection();
+        $model = new \App\Models\Citizen($db);
+        $result = $model->update($id, $updateData);
+
+        if (!$result) {
+            return ['status' => 'error', 'code' => 500, 'message' => 'Gagal mengupdate profil'];
+        }
+
+        // Return updated data
+        $citizen = $model->findById($id);
+        unset($citizen['password_hash']);
+
+        return [
+            'status'    => 'success',
+            'code'      => 200,
+            'data'      => $citizen,
+            'message'   => 'Profil berhasil diupdate',
+            'timestamp' => date('c'),
+            'service'   => 'citizen-service'
+        ];
+}
 }

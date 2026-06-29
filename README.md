@@ -267,6 +267,8 @@ curl -X POST http://localhost:3000/oauth/login \
 | **PATCH** | `/api/notifications/:id/read` | JWT | Tandai sudah dibaca | Updated notification |
 | **GET** | `/health` | None | DB connection status | `{status, database}` |
 
+> Catatan: `POST /api/citizens` mengembalikan objek `data.citizen` yang berisi `id`. Gunakan nilai `data.citizen.id` tersebut sebagai parameter `:id` untuk `PUT /api/citizens/:id`.
+
 **Example:**
 ```bash
 # Submit Report
@@ -278,6 +280,54 @@ curl -X POST http://localhost:3000/api/reports \
     "zone_id": 1,
     "description": "Kemacetan parah di Jl. Sudirman"
   }'
+```
+
+**Body Request Dummy:**
+
+**POST /api/citizens**
+```json
+{
+  "username": "budi_santoso",
+  "email": "budi@example.com",
+  "password": "SecurePass123!",
+  "full_name": "Budi Santoso",
+  "phone": "081234567890",
+  "zone_id": 2
+}
+```
+
+**PUT /api/citizens/:id**
+```json
+{
+  "full_name": "Budi Santoso",
+  "phone": "081234567890",
+  "zone_id": 3,
+  "email": "budi.updated@example.com"
+}
+```
+
+**POST /api/reports**
+```json
+{
+  "category": "kecelakaan",
+  "zone_id": 4,
+  "description": "Kecelakaan ringan di simpang lampu lalu lintas",
+  "severity": "medium"
+}
+```
+
+**PATCH /api/reports/:id/status**
+```json
+{
+  "status": "in_progress"
+}
+```
+
+**PATCH /api/notifications/:id/read**
+```json
+{
+  "read": true
+}
 ```
 
 ---
@@ -297,6 +347,41 @@ curl -X POST http://localhost:3000/api/reports \
 
 ---
 
+**Body Request Dummy:**
+
+**POST /api/traffic/readings**
+```json
+{
+  "sensor_id": "sensor-701",
+  "zone_id": 5,
+  "vehicle_count": 42,
+  "average_speed": 32.5,
+  "timestamp": "2026-06-29T08:45:00Z"
+}
+```
+
+**POST /api/incidents**
+```json
+{
+  "zone_id": 5,
+  "type": "kendaraan mogok",
+  "description": "Bus berhenti di lajur cepat, mengganggu arus lalu lintas",
+  "severity": "high",
+  "reported_by": "operator"
+}
+```
+
+**PATCH /api/incidents/:id/resolve**
+```json
+{
+  "status": "resolved",
+  "resolved_by": "admin",
+  "notes": "Kendaraan telah dipindahkan dan lalu lintas normal kembali"
+}
+```
+
+---
+
 ### Parking Service (:8002, via Gateway `/api/parking`)
 
 | Method | Endpoint | Auth | Deskripsi | Status |
@@ -312,6 +397,39 @@ curl -X POST http://localhost:3000/api/reports \
 
 ---
 
+**Body Request Dummy:**
+
+**POST /api/parking/reserve**
+```json
+{
+  "slot_id": 12,
+  "citizen_id": 7,
+  "vehicle_plate": "B 1234 CD",
+  "start_time": "2026-06-29T10:00:00Z",
+  "estimated_duration_hours": 2
+}
+```
+
+**PATCH /api/parking/checkin/:id**
+```json
+{
+  "vehicle_plate": "B 1234 CD",
+  "entry_method": "manual",
+  "checkin_time": "2026-06-29T10:05:00Z"
+}
+```
+
+**PATCH /api/parking/checkout/:id**
+```json
+{
+  "checkout_time": "2026-06-29T12:10:00Z",
+  "payment_method": "mobile_wallet",
+  "notes": "Checkout melalui aplikasi"
+}
+```
+
+---
+
 ### Python ML Service (:5000, via Gateway `/predict`, `/detect`)
 
 | Method | Endpoint | Auth | Deskripsi | Status |
@@ -322,6 +440,62 @@ curl -X POST http://localhost:3000/api/reports \
 | **POST** | `/detect/anomaly` | JWT | Deteksi anomali sensor | 200 ✅ |
 | **GET** | `/model/feature-importance` | JWT | Bobot fitur ketiga model | 200 ✅ |
 | **POST** | `/predict/batch` | JWT | Batch prediction (array) | 200 ✅ |
+
+**Body Request Dummy:**
+
+**POST /predict/traffic**
+```json
+{
+  "sensor_id": "sensor-007",
+  "zone_id": 5,
+  "vehicle_count": 38,
+  "average_speed": 29.4,
+  "timestamp": "2026-06-29T09:15:00Z"
+}
+```
+
+**POST /predict/parking**
+```json
+{
+  "zone_id": 2,
+  "available_slots": 15,
+  "vehicle_count": 23,
+  "timestamp": "2026-06-29T09:20:00Z"
+}
+```
+
+**POST /detect/anomaly**
+```json
+{
+  "sensor_id": "sensor-010",
+  "zone_id": 5,
+  "vehicle_count": 180,
+  "average_speed": 8.7,
+  "timestamp": "2026-06-29T09:25:00Z"
+}
+```
+
+**POST /predict/batch**
+```json
+{
+  "records": [
+    {
+      "sensor_id": "sensor-007",
+      "zone_id": 5,
+      "vehicle_count": 38,
+      "average_speed": 29.4,
+      "timestamp": "2026-06-29T09:15:00Z"
+    },
+    {
+      "sensor_id": "sensor-010",
+      "zone_id": 2,
+      "vehicle_count": 12,
+      "average_speed": 42.1,
+      "timestamp": "2026-06-29T09:18:00Z"
+    }
+  ]
+}
+```
 
 **Response Format Standard** (All endpoints):
 ```json

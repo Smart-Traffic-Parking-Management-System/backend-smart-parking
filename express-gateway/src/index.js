@@ -82,6 +82,7 @@ function resolveTargetUrl(rawUrl, fallbackUrl, defaultPort) {
 }
 
 const oauthServerUrl       = resolveTargetUrl(process.env.OAUTH_SERVER_URL, process.env.OAUTH_SERVER_URL || 'http://127.0.0.1:3002', '3002');
+const citizenServiceUrl    = resolveTargetUrl(process.env.CITIZEN_SERVICE_URL, process.env.CITIZEN_SERVICE_URL || 'http://127.0.0.1:8000', '8000');
 const trafficServiceUrl     = resolveTargetUrl(process.env.TRAFFIC_SERVICE_URL, process.env.TRAFFIC_SERVICE_URL || 'http://127.0.0.1:8001', '8001');
 const parkingServiceUrl     = resolveTargetUrl(process.env.PARKING_SERVICE_URL, process.env.PARKING_SERVICE_URL || 'http://127.0.0.1:8002', '8002');
 const oauthIntrospectPath  = process.env.OAUTH_INTROSPECT_PATH || '/oauth/introspect';
@@ -117,6 +118,64 @@ function parseRequestBody(req) {
   }
 
   return req.body;
+}
+
+function gatewayResponse(status, code, data, message) {
+  return {
+    status,
+    code,
+    data,
+    message,
+    timestamp: new Date().toISOString(),
+    service: 'express-gateway',
+  };
+}
+
+async function registerCitizen(req, res) {
+  const body = parseRequestBody(req);
+  const { nik, email, password, name, phone, zone_id } = body;
+  const username = body.username || String(nik || email).split('@')[0];
+
+  if (!nik || !email || !password) {
+    return res.status(422).json(gatewayResponse('error', 422, null, 'nik, email, dan password wajib diisi'));
+  }
+
+  let authResult;
+  try {
+    const authResponse = await axios.post(
+      `${oauthServerUrl}/register`,
+      { username, email, password },
+      { timeout: 5000 }
+    );
+    authResult = authResponse.data;
+  } catch (error) {
+    const status = error.response?.status || 502;
+    const message = error.response?.data?.message || 'Gagal mendaftarkan akun autentikasi';
+    return res.status(status).json(gatewayResponse('error', status, null, message));
+  }
+
+  if (authResult.status !== 'success') {
+    return res.status(authResult.code || 500).json(gatewayResponse('error', authResult.code || 500, null, authResult.message || 'Auth registration failed'));
+  }
+
+  let citizenResult;
+  try {
+    const citizenResponse = await axios.post(
+      `${citizenServiceUrl}/api/citizens`,
+      { nik, email, password, name, phone, zone_id },
+      { timeout: 5000 }
+    );
+    citizenResult = citizenResponse.data;
+  } catch (error) {
+    const status = error.response?.status || 502;
+    const message = error.response?.data?.message || 'Gagal membuat profil citizen';
+    return res.status(status).json(gatewayResponse('error', status, null, message));
+  }
+
+  return res.status(201).json(gatewayResponse('success', 201, {
+    citizen: citizenResult.data,
+    auth: authResult.data,
+  }, 'Citizen berhasil didaftarkan dan login'));
 }
 
 if (!oauthServerUrl) {
@@ -477,7 +536,7 @@ app.post(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // POST /api/citizens — PUBLIC (register warga baru, tidak butuh auth)
-app.post('/api/citizens', citizenProxy);
+app.post('/api/citizens', registerCitizen);
 
 // GET /api/citizens/:id — CITIZEN (milik sendiri) + ADMIN
 app.get(

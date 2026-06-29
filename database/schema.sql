@@ -1,6 +1,10 @@
 CREATE DATABASE IF NOT EXISTS smartcity;
 USE smartcity;
 
+CREATE USER IF NOT EXISTS 'smartcity_app'@'%' IDENTIFIED BY 'SmartCity@App#2026';
+GRANT ALL PRIVILEGES ON smartcity.* TO 'smartcity_app'@'%';
+FLUSH PRIVILEGES;
+
 CREATE TABLE zones (
   id INT PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(50) NOT NULL,

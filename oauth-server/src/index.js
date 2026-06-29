@@ -15,6 +15,19 @@ app.use((req, res, next) => {
 
 app.use('/oauth', oauthRoutes);
 
+// Handle malformed JSON body parse failures with a clean client error.
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      status: 'error',
+      code: 400,
+      message: 'Invalid JSON body',
+      details: err.message,
+    });
+  }
+  return next(err);
+});
+
 app.get('/health', (req, res) => {
   res.json({
     status:  'success',

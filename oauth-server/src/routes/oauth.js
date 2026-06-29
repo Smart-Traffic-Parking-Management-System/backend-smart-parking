@@ -1,326 +1,285 @@
 /**
- * oauth-server/src/routes/oauth.js
- *
- * Penyesuaian terhadap schema.sql:
- *
- * 1. citizen_id adalah INT (sesuai citizens.id AUTO_INCREMENT di DB).
- *    Seed data: Budi=1, Siti=2, Dewi=3, Ahmad=4, Admin=5.
- *    User store in-memory mengikuti urutan tersebut.
- *
- * 2. Token payload menyertakan user_id (INT) — nama field yang sama dengan
- *    kolom oauth_tokens.user_id agar mudah dimigrasi ke DB query nantinya.
- *    citizen_id di payload adalah alias user_id untuk konsistensi dengan
- *    service PHP yang membaca 'citizen_id' dari JWT.
- *
- * 3. isActive() menggantikan pengecekan flag 'active'. Logika:
- *    expires_at > now AND revoked_at === null
- *    — identik dengan kondisi SQL pada tabel oauth_tokens.
- *
- * 4. scope disimpan di token store dan dikembalikan saat introspect,
- *    sesuai kolom oauth_tokens.scope.
+ * OAuth Routes - Simplified JWT-based Authentication
+ * 
+ * Endpoints:
+ * - POST /register          → Register citizen
+ * - POST /login             → Login any user (admin/citizen)
+ * - POST /refresh           → Refresh access token
+ * - POST /revoke            → Revoke token
+ * - POST /introspect        → Verify token (Gateway use)
+ * - GET  /google            → Google OAuth start
+ * - GET  /google/callback   → Google OAuth callback
  */
 
 const express = require('express');
-const bcrypt  = require('bcryptjs');
-const jwt     = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
-const { saveToken, getToken, revokeToken, isActive, listTokens } = require('../models/token');
+
+const {
+  createAccessToken,
+  createRefreshToken,
+  createTokenPair,
+  createServiceToken,
+  verifyToken,
+  revokeToken,
+  isTokenRevoked,
+  introspectToken,
+} = require('../models/token');
+
+const {
+  getUserByUsername,
+  getUserByEmail,
+  createUser,
+  listAllUsers,
+} = require('../models/user');
 
 const router = express.Router();
 
-const jwtSecret             = process.env.JWT_SECRET;
-const jwtExpiresIn          = process.env.JWT_EXPIRES_IN || '3600';
-const refreshTokenExpiresIn = parseInt(process.env.REFRESH_TOKEN_EXPIRES_IN || '86400', 10);
-
-if (!jwtSecret) {
-  throw new Error('JWT_SECRET is required');
+// ────────────────────────────────────────────────────────────────────────────────
+// Helper: Format response JSON (sesuai plan.md standar)
+// ────────────────────────────────────────────────────────────────────────────────
+function formatResponse(status, code, data, message) {
+  return {
+    status,
+    code,
+    data,
+    message,
+    timestamp: new Date().toISOString(),
+    service: 'oauth-server',
+  };
 }
 
-const clientId     = process.env.OAUTH_CLIENT_ID;
-const clientSecret = process.env.OAUTH_CLIENT_SECRET;
 
-/**
- * User store in-memory.
- * citizen_id (= user_id di oauth_tokens) adalah INT sesuai citizens.id dari seed.sql:
- *   1 = Budi Santoso  (citizen)
- *   2 = Siti Rahayu   (citizen)
- *   3 = Dewi Putri    (citizen)
- *   4 = Ahmad Fauzi   (citizen)
- *   5 = Admin Kota    (admin)
- *
- * Untuk production: ganti Map ini dengan query:
- *   SELECT id, email, password_hash, role FROM citizens WHERE email = ?
- */
-const users = new Map([
-  [
-    process.env.USER_USERNAME || 'admin',
-    {
-      username:     process.env.USER_USERNAME || 'admin',
-      passwordHash: bcrypt.hashSync(process.env.USER_PASSWORD || 'admin123', 10),
-      role:         'admin',
-      user_id:      5,   // citizens.id = 5 (Admin Kota) sesuai seed.sql
-    },
-  ],
-  [
-    process.env.CITIZEN_USERNAME || 'warga1',
-    {
-      username:     process.env.CITIZEN_USERNAME || 'warga1',
-      passwordHash: bcrypt.hashSync(process.env.CITIZEN_PASSWORD || 'warga123', 10),
-      role:         'citizen',
-      user_id:      1,   // citizens.id = 1 (Budi Santoso) sesuai seed.sql
-    },
-  ],
-]);
+// ────────────────────────────────────────────────────────────────────────────────
+// POST /register
+// Register citizen user baru (flexible, tidak terbatas hanya "warga1")
+// ────────────────────────────────────────────────────────────────────────────────
+router.post('/register', (req, res) => {
+  try {
+    const { username, email, password } = req.body;
 
-function createAccessToken(payload) {
-  return jwt.sign(payload, jwtSecret, { expiresIn: Number(jwtExpiresIn) });
-}
+    // Validasi input
+    if (!username || !email || !password) {
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'username, email, dan password wajib diisi')
+      );
+    }
 
-// ─── POST /oauth/token ─────────────────────────────────────────────────────────
-// Use global body parsers (JSON and urlencoded) configured in src/index.js
-router.post('/token', (req, res) => {
-  const grantType = req.body.grant_type;
+    // Validasi format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'Email format tidak valid')
+      );
+    }
 
-  if (!grantType) {
-    return res.status(400).json({ status: 'error', code: 400, message: 'grant_type is required' });
+    // Validasi password length
+    if (password.length < 6) {
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'Password minimal 6 karakter')
+      );
+    }
+
+    // Cek duplikat username / email
+    if (getUserByUsername(username) || getUserByEmail(email)) {
+      return res.status(409).json(
+        formatResponse('error', 409, null, 'Username atau email sudah terdaftar')
+      );
+    }
+
+    // Hash password
+    const passwordHash = bcrypt.hashSync(password, 10);
+
+    // Create user
+    const newUser = createUser(username, email, passwordHash, 'citizen');
+
+    if (!newUser) {
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'Gagal membuat user')
+      );
+    }
+
+    return res.status(201).json(
+      formatResponse('success', 201, newUser, 'User berhasil didaftarkan')
+    );
+  } catch (error) {
+    console.error('Register error:', error);
+    return res.status(500).json(
+      formatResponse('error', 500, null, 'Server error')
+    );
   }
+});
 
-  // ── grant: password ──────────────────────────────────────────────────────────
-  if (grantType === 'password') {
+// ────────────────────────────────────────────────────────────────────────────────
+// POST /login
+// Login user (admin atau citizen) dengan username + password
+// ────────────────────────────────────────────────────────────────────────────────
+router.post('/login', (req, res) => {
+  try {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({
-        status: 'error', code: 400,
-        message: 'username and password are required',
-      });
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'username dan password wajib diisi')
+      );
     }
 
-    const user = users.get(username);
-    if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-      return res.status(401).json({
-        status: 'error', code: 401,
-        message: 'Invalid credentials',
-      });
+    // Cari user
+    const user = getUserByUsername(username);
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return res.status(401).json(
+        formatResponse('error', 401, null, 'Username atau password salah')
+      );
     }
 
-    const expiresAt    = Date.now() + Number(jwtExpiresIn) * 1000;
-    const accessToken  = createAccessToken({
-      sub:        user.user_id,    // INT — sesuai oauth_tokens.user_id
-      user_id:    user.user_id,    // INT — alias eksplisit untuk service PHP
-      citizen_id: user.user_id,    // INT — dibaca oleh PHP untuk filter data
-      username:   user.username,
-      role:       user.role,       // 'citizen' | 'admin'
-    });
-    const refreshToken = uuidv4();
+    // Create token pair
+    const tokens = createTokenPair(user);
 
-    const tokenData = {
-      // Kolom oauth_tokens
-      client_id:     clientId,
-      user_id:       user.user_id,   // INT, FK ke citizens.id
-      access_token:  accessToken,
-      refresh_token: refreshToken,
-      scope:         'read write',
-      expires_at:    expiresAt,
-      revoked_at:    null,
-      // Tambahan untuk response JSON (tidak disimpan ke DB sebagai kolom)
-      token_type:    'Bearer',
-      expires_in:    Number(jwtExpiresIn),
-      username:      user.username,
-      role:          user.role,
-    };
-
-    saveToken(tokenData);
-    return res.json({
-      access_token:  accessToken,
-      token_type:    'Bearer',
-      expires_in:    Number(jwtExpiresIn),
-      refresh_token: refreshToken,
-      scope:         'read write',
-    });
-  }
-
-  // ── grant: client_credentials ─────────────────────────────────────────────────
-  // Untuk Node-RED (IoT), Python ML, komunikasi antar-service.
-  // user_id = NULL karena tidak ada citizen yang login.
-  if (grantType === 'client_credentials') {
-    const auth = req.headers.authorization || '';
-    const [providedClientId, providedClientSecret] = Buffer.from(
-      auth.replace(/^Basic\s+/i, ''), 'base64'
-    ).toString().split(':');
-
-    const resolvedClientId     = req.body.client_id     || providedClientId;
-    const resolvedClientSecret = req.body.client_secret || providedClientSecret;
-
-    if (resolvedClientId !== clientId || resolvedClientSecret !== clientSecret) {
-      return res.status(401).json({
-        status: 'error', code: 401,
-        message: 'Invalid client credentials',
-      });
-    }
-
-    const expiresAt   = Date.now() + Number(jwtExpiresIn) * 1000;
-    const accessToken = createAccessToken({
-      client_id: clientId,
-      scope:     'service',
-    });
-
-    const tokenData = {
-      // Kolom oauth_tokens
-      client_id:     clientId,
-      user_id:       null,           // NULL — tidak ada citizen yang login
-      access_token:  accessToken,
-      refresh_token: null,
-      scope:         'service',
-      expires_at:    expiresAt,
-      revoked_at:    null,
-      // Tambahan
-      token_type:    'Bearer',
-      expires_in:    Number(jwtExpiresIn),
-    };
-
-    saveToken(tokenData);
-    return res.json({
-      access_token: accessToken,
-      token_type:   'Bearer',
-      expires_in:   Number(jwtExpiresIn),
-      scope:        'service',
-    });
-  }
-
-  // ── grant: refresh_token ──────────────────────────────────────────────────────
-  if (grantType === 'refresh_token') {
-    const refreshToken = req.body.refresh_token;
-    if (!refreshToken) {
-      return res.status(400).json({
-        status: 'error', code: 400,
-        message: 'refresh_token is required',
-      });
-    }
-
-    const tokenRecord = getToken(refreshToken);
-
-    // Cek: token ada, refresh_token cocok, belum dicabut, belum kadaluarsa
-    if (!tokenRecord || tokenRecord.refresh_token !== refreshToken || !isActive(tokenRecord)) {
-      return res.status(401).json({
-        status: 'error', code: 401,
-        message: 'Invalid, expired, or revoked refresh token',
-      });
-    }
-
-    const expiresAt   = Date.now() + refreshTokenExpiresIn * 1000;
-    const accessToken = createAccessToken({
-      sub:        tokenRecord.user_id,
-      user_id:    tokenRecord.user_id,
-      citizen_id: tokenRecord.user_id,
-      username:   tokenRecord.username,
-      role:       tokenRecord.role,
-    });
-
-    const newTokenData = {
-      client_id:     tokenRecord.client_id,
-      user_id:       tokenRecord.user_id,
-      access_token:  accessToken,
-      refresh_token: tokenRecord.refresh_token, // refresh token tetap sama
-      scope:         tokenRecord.scope,
-      expires_at:    expiresAt,
-      revoked_at:    null,
-      token_type:    'Bearer',
-      expires_in:    Number(jwtExpiresIn),
-      username:      tokenRecord.username,
-      role:          tokenRecord.role,
-    };
-
-    saveToken(newTokenData);
-    return res.json({
-      access_token:  accessToken,
-      token_type:    'Bearer',
-      expires_in:    Number(jwtExpiresIn),
-      refresh_token: tokenRecord.refresh_token,
-      scope:         tokenRecord.scope,
-    });
-  }
-
-  return res.status(400).json({
-    status: 'error', code: 400,
-    message: 'Unsupported grant_type. Supported: password, client_credentials, refresh_token',
-  });
-});
-
-// ─── POST /oauth/introspect ────────────────────────────────────────────────────
-// Hanya dapat diakses oleh Gateway via x-api-key.
-// Mengembalikan field yang dibutuhkan Gateway dan service PHP:
-//   active, role, user_id/citizen_id, scope
-router.post('/introspect', (req, res) => {
-  const apiKey = req.headers['x-api-key'] || req.body.api_key;
-  // Accept either INTROSPECTION_API_KEY (oauth-server) or
-  // OAUTH_INTROSPECTION_API_KEY (gateway .env naming) for flexibility.
-  const expectedApiKey = process.env.INTROSPECTION_API_KEY || process.env.OAUTH_INTROSPECTION_API_KEY;
-
-  if (!expectedApiKey || apiKey !== expectedApiKey) {
-    return res.status(403).json({
-      status: 'error', code: 403,
-      message: 'Invalid introspection API key',
-    });
-  }
-
-  const token = req.body.token;
-  if (!token) {
-    return res.status(400).json({
-      status: 'error', code: 400,
-      message: 'token is required',
-    });
-  }
-
-  try {
-    const payload     = jwt.verify(token, jwtSecret);
-    const tokenRecord = getToken(token);
-
-    // Aktif jika JWT valid DAN token di store belum dicabut & belum kadaluarsa
-    const active = Boolean(payload && tokenRecord && isActive(tokenRecord));
-
-    return res.json({
-      active,
-      sub:        payload.sub        || null,
-      user_id:    payload.user_id    || null,  // INT, FK citizens.id
-      citizen_id: payload.citizen_id || null,  // alias user_id untuk service PHP
-      username:   payload.username   || null,
-      role:       payload.role       || null,  // 'citizen' | 'admin' | null (service)
-      scope:      tokenRecord?.scope  || null, // 'read write' | 'service'
-      client_id:  tokenRecord?.client_id || null,
-      expires_at: tokenRecord?.expires_at || null,
-    });
+    return res.status(200).json(
+      formatResponse('success', 200, tokens, 'Login berhasil')
+    );
   } catch (error) {
-    return res.json({ active: false });
+    console.error('Login error:', error);
+    return res.status(500).json(
+      formatResponse('error', 500, null, 'Server error')
+    );
   }
 });
 
-// ─── POST /oauth/revoke ────────────────────────────────────────────────────────
-// Mengisi revoked_at di token store (ekuivalen dengan UPDATE oauth_tokens
-// SET revoked_at = NOW() WHERE access_token = ? di DB production).
+// ────────────────────────────────────────────────────────────────────────────────
+// POST /service-token
+// Issue a dedicated service token for IoT/internal requests
+// ────────────────────────────────────────────────────────────────────────────────
+router.post('/service-token', (req, res) => {
+  try {
+    const { service_name } = req.body;
+    const tokenName = service_name || 'iot-service';
+
+    const serviceToken = createServiceToken(tokenName);
+
+    return res.status(200).json(
+      formatResponse('success', 200, serviceToken, 'Service token berhasil dibuat')
+    );
+  } catch (error) {
+    console.error('Service token error:', error);
+    return res.status(500).json(
+      formatResponse('error', 500, null, 'Server error')
+    );
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────────
+// POST /refresh
+// Refresh access token menggunakan refresh token
+// ────────────────────────────────────────────────────────────────────────────────
+router.post('/refresh', (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'refresh_token wajib diisi')
+      );
+    }
+
+    // Verify refresh token
+    const decoded = verifyToken(refresh_token);
+    if (!decoded) {
+      return res.status(401).json(
+        formatResponse('error', 401, null, 'Refresh token invalid atau expired')
+      );
+    }
+
+    // Create new access token dengan payload yang sama
+    const newAccessToken = createAccessToken({
+      user_id: decoded.user_id,
+      username: decoded.username,
+      email: decoded.email,
+      role: decoded.role,
+    });
+
+    return res.status(200).json(
+      formatResponse('success', 200, {
+        access_token: newAccessToken,
+        token_type: 'Bearer',
+        expires_in: parseInt(process.env.JWT_EXPIRES_IN || '3600', 10),
+      }, 'Token berhasil direfresh')
+    );
+  } catch (error) {
+    console.error('Refresh error:', error);
+    return res.status(500).json(
+      formatResponse('error', 500, null, 'Server error')
+    );
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────────
+// POST /revoke
+// Revoke token (add ke blacklist)
+// ────────────────────────────────────────────────────────────────────────────────
 router.post('/revoke', (req, res) => {
-  const token = req.body.token;
-  if (!token) {
-    return res.status(400).json({
-      status: 'error', code: 400,
-      message: 'token is required',
-    });
-  }
+  try {
+    const { token } = req.body;
 
-  const revoked = revokeToken(token);
-  if (!revoked) {
-    return res.status(404).json({
-      status: 'error', code: 404,
-      message: 'Token not found',
-    });
-  }
+    if (!token) {
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'token wajib diisi')
+      );
+    }
 
-  return res.json({ status: 'success', message: 'Token revoked successfully' });
+    // Revoke token
+    const success = revokeToken(token);
+    if (!success) {
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'Token invalid atau sudah di-revoke')
+      );
+    }
+
+    return res.status(200).json(
+      formatResponse('success', 200, null, 'Token berhasil di-revoke')
+    );
+  } catch (error) {
+    console.error('Revoke error:', error);
+    return res.status(500).json(
+      formatResponse('error', 500, null, 'Server error')
+    );
+  }
 });
 
-// ─── Google OAuth routes (external identity provider) ─────────────────────────
-// Requires these env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL
+// ────────────────────────────────────────────────────────────────────────────────
+// POST /introspect
+// Verify token (untuk Gateway dan service lain)
+// Butuh Authorization header atau x-api-key
+// ────────────────────────────────────────────────────────────────────────────────
+router.post('/introspect', (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json(
+        formatResponse('error', 400, null, 'token wajib diisi')
+      );
+    }
+
+    // Introspect token
+    const tokenInfo = introspectToken(token);
+
+    return res.status(200).json(
+      formatResponse('success', 200, tokenInfo, 'Token introspection successful')
+    );
+  } catch (error) {
+    console.error('Introspect error:', error);
+    return res.status(500).json(
+      formatResponse('error', 500, null, 'Server error')
+    );
+  }
+});
+
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Google OAuth (optional)
+// ────────────────────────────────────────────────────────────────────────────────
+
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL;
@@ -329,79 +288,106 @@ let googleOauthClient = null;
 if (googleClientId && googleClientSecret && googleCallbackUrl) {
   googleOauthClient = new OAuth2Client(googleClientId, googleClientSecret, googleCallbackUrl);
 
-  // Redirect user to Google's consent page
+  /**
+   * GET /google
+   * Redirect ke Google consent page
+   */
   router.get('/google', (req, res) => {
-    const url = googleOauthClient.generateAuthUrl({
-      access_type: 'offline',
-      scope: ['openid', 'email', 'profile'],
-      prompt: 'consent',
-    });
-    return res.redirect(url);
+    try {
+      const url = googleOauthClient.generateAuthUrl({
+        access_type: 'offline',
+        scope: ['openid', 'email', 'profile'],
+        prompt: 'consent',
+      });
+      return res.redirect(url);
+    } catch (error) {
+      console.error('Google OAuth initiation error:', error);
+      return res.status(500).json(
+        formatResponse('error', 500, null, 'Google OAuth error')
+      );
+    }
   });
 
-  // Callback that Google will call with authorization code
+  /**
+   * GET /google/callback
+   * Google callback dengan authorization code
+   */
   router.get('/google/callback', async (req, res) => {
-    const code = req.query.code;
-    if (!code) {
-      return res.status(400).json({ status: 'error', code: 400, message: 'code is required' });
-    }
-
     try {
-      const { tokens } = await googleOauthClient.getToken(code);
-      if (!tokens || !tokens.id_token) {
-        return res.status(400).json({ status: 'error', code: 400, message: 'No id_token from Google' });
+      const code = req.query.code;
+      if (!code) {
+        return res.status(400).json(
+          formatResponse('error', 400, null, 'Authorization code missing')
+        );
       }
 
-      // Verify ID token and extract user info
-      const ticket = await googleOauthClient.verifyIdToken({ idToken: tokens.id_token, audience: googleClientId });
-      const payload = ticket.getPayload();
-      const name = payload.name || payload.email || 'User';
-      const email = payload.email || null;
+      // Get tokens from Google
+      const { tokens } = await googleOauthClient.getToken(code);
+      if (!tokens || !tokens.id_token) {
+        return res.status(400).json(
+          formatResponse('error', 400, null, 'No id_token from Google')
+        );
+      }
 
-      // Issue internal JWT (same format as password grant)
-      const accessToken = createAccessToken({
-        email,
-        name,
-        role: 'citizen',
+      // Verify ID token
+      const ticket = await googleOauthClient.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: googleClientId,
       });
-      const refreshToken = uuidv4();
-      const expiresAt = Date.now() + Number(jwtExpiresIn) * 1000;
 
-      const tokenData = {
-        client_id: clientId,
-        user_id: null,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        scope: 'read',
-        expires_at: expiresAt,
-        revoked_at: null,
-        token_type: 'Bearer',
-        expires_in: Number(jwtExpiresIn),
-        username: email,
-        role: 'citizen',
-      };
+      const payload = ticket.getPayload();
+      const email = payload.email;
+      const name = payload.name || email;
 
-      saveToken(tokenData);
+      // Cek apakah user sudah ada
+      let user = getUserByEmail(email);
 
-      // Return greeting as requested
-      res.setHeader('Content-Type', 'text/plain');
-      return res.send(`Hai, ${name}`);
+      // Jika belum ada, buat user baru dengan email sebagai username
+      if (!user) {
+        const username = email.split('@')[0]; // gunakan bagian sebelum @ sebagai username
+        const passwordHash = bcrypt.hashSync(Math.random().toString(), 10); // random password
+        user = createUser(username, email, passwordHash, 'citizen');
+      }
+
+      // Create token pair
+      const tokenPair = createTokenPair(user);
+
+      // Return as JSON
+      return res.json(
+        formatResponse('success', 200, {
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+          },
+          ...tokenPair,
+        }, `Google login berhasil. Hai ${name}!`)
+      );
     } catch (error) {
-      console.error('Google OAuth callback error:', error);
-      return res.status(500).json({ status: 'error', code: 500, message: 'Google OAuth error' });
+      console.error('Google callback error:', error);
+      return res.status(500).json(
+        formatResponse('error', 500, null, 'Google OAuth error')
+      );
     }
+  });
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Development debug endpoints
+// ────────────────────────────────────────────────────────────────────────────────
+if (process.env.NODE_ENV === 'development') {
+  router.get('/debug/users', (req, res) => {
+    return res.json(
+      formatResponse('success', 200, listAllUsers(), 'All users (admin only)')
+    );
+  });
+
+  router.get('/debug/ping', (req, res) => {
+    return res.json(
+      formatResponse('success', 200, { env: process.env.NODE_ENV }, 'OAuth server is running')
+    );
   });
 }
 
 module.exports = router;
-
-// --- Development-only debug routes to aid Postman/manual testing ---
-if (process.env.NODE_ENV === 'development') {
-  // List active token records (non-production helper)
-  router.get('/debug/tokens', (req, res) => {
-    return res.json({ status: 'success', tokens: listTokens() });
-  });
-
-  // Simple ping to verify router is loaded
-  router.get('/debug/ping', (req, res) => res.json({ status: 'success', service: 'oauth-server', env: process.env.NODE_ENV }));
-}

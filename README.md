@@ -261,13 +261,13 @@ curl -X POST http://localhost:3000/oauth/login \
 | **GET** | `/api/citizens/:id` | JWT | Profil warga | `{id, name, email, phone, zone}` |
 | **PUT** | `/api/citizens/:id` | JWT | Update profil | Updated user object |
 | **POST** | `/api/reports` | JWT | Submit laporan | `{id, category, zone, status, created_at}` |
-
-> Catatan: `POST /api/citizens` mengembalikan objek `data.citizen` yang berisi `id`. Gunakan nilai `data.citizen.id` tersebut sebagai parameter `:id` untuk `PUT /api/citizens/:id`.
 | **GET** | `/api/reports` | JWT | Daftar laporan (filter: status, zone) | Array of reports |
 | **PATCH** | `/api/reports/:id/status` | JWT+Admin | Update status laporan | Updated report |
 | **GET** | `/api/notifications` | JWT | Notifikasi user yang login | Array of notifications |
 | **PATCH** | `/api/notifications/:id/read` | JWT | Tandai sudah dibaca | Updated notification |
 | **GET** | `/health` | None | DB connection status | `{status, database}` |
+
+> Catatan: `POST /api/citizens` mengembalikan objek `data.citizen` yang berisi `id`. Gunakan nilai `data.citizen.id` tersebut sebagai parameter `:id` untuk `PUT /api/citizens/:id`.
 
 **Example:**
 ```bash

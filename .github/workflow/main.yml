@@ -1,0 +1,69 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push oauth-server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./oauth-server
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/smartcity-oauth-server:latest
+
+      - name: Build and push api-gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./express-gateway
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/smartcity-api-gateway:latest
+
+      - name: Build and push citizen-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./php-citizen
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/smartcity-citizen-service:latest
+
+      - name: Build and push traffic-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./php-traffic
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/smartcity-traffic-service:latest
+
+      - name: Build and push parking-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./php-parking
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/smartcity-parking-service:latest
+
+      - name: Build and push python-ml-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./python-ml-service
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/smartcity-python-ml:latest
